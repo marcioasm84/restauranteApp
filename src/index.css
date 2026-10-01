@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  /* Deliberately dark, single-theme pizzeria palette: deep wood-fired-oven
+     background, basil green as the primary action color, tomato red as the
+     brand's high-energy accent. No light variant — this is the app's look. */
+  color-scheme: dark;
+  --bg: #130c07;
+  --surface: #1f150c;
+  --surface-alt: #2b1d10;
+  --ink: #f8ecd9;
+  --ink-soft: #c2a284;
+  --border: #3c2a16;
+  --accent: #34b46f;
+  --accent-soft: #1c3324;
+  --copper: #f2645d;
+  --copper-soft: #3d1e19;
+  --danger: #f0776b;
+}
+
+@theme {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Public Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-copper: var(--copper);
+  --color-copper-soft: var(--copper-soft);
+  --color-danger: var(--danger);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  text-wrap: balance;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-slide-up {
+  animation: slide-up 0.22s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out;
+}

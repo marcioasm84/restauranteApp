@@ -1,0 +1,134 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum TableStatus {
+  livre
+  ocupada
+  aguardando_pedido
+  aguardando_conta
+}
+
+enum OrderStatus {
+  recebido
+  preparando
+  pronto
+  entregue
+}
+
+enum PaymentMethod {
+  pix
+  cartao
+  carteira
+}
+
+model RestaurantTable {
+  id             String   @id
+  number         Int      @unique
+  status         TableStatus @default(livre)
+  callingWaiter  Boolean  @default(false)
+  requestingBill Boolean  @default(false)
+  orders         Order[]
+
+  @@map("restaurant_tables")
+}
+
+model MenuItem {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  category    String
+  image       String
+  badges      String[]
+  pontoCarne  String[]
+  removiveis  String[]
+  createdAt   DateTime @default(now())
+
+  @@map("menu_items")
+}
+
+model Order {
+  id            String      @id
+  tableId       String
+  table         RestaurantTable @relation(fields: [tableId], references: [id])
+  status        OrderStatus @default(recebido)
+  createdAt     DateTime    @default(now())
+  statusHistory Json
+  lines         OrderLine[]
+
+  @@map("orders")
+}
+
+model OrderLine {
+  id         String  @id @default(uuid())
+  orderId    String
+  order      Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  name       String
+  unitPrice  Float
+  quantity   Int
+  pontoCarne String?
+  removidos  String[]
+  observacao String
+
+  @@map("order_lines")
+}
+
+model Bill {
+  id                 String        @id
+  tableId            String
+  tableNumber        Int
+  subtotal           Float
+  loyaltyDiscount    Float
+  total              Float
+  paymentMethod      PaymentMethod
+  splitCount         Int
+  perPerson          Float
+  customerPhone      String?
+  pointsEarned       Int
+  pointsRedeemed     Int
+  prepMinutesSamples Float[]
+  createdAt          DateTime      @default(now())
+  lines              BillLine[]
+  reviews            Review[]
+
+  @@map("bills")
+}
+
+model BillLine {
+  id        String @id @default(uuid())
+  billId    String
+  bill      Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
+  name      String
+  quantity  Int
+  unitPrice Float
+
+  @@map("bill_lines")
+}
+
+model LoyaltyAccount {
+  phone      String @id
+  points     Int    @default(0)
+  totalSpent Float  @default(0)
+  visits     Int    @default(0)
+
+  @@map("loyalty_accounts")
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  billId      String
+  bill        Bill     @relation(fields: [billId], references: [id])
+  tableNumber Int
+  rating      Int
+  comment     String
+  createdAt   DateTime @default(now())
+
+  @@map("reviews")
+}

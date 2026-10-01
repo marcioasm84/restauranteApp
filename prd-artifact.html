@@ -1,0 +1,519 @@
+<title>Mesa Viva</title>
+<meta name="description" content="PRD do aplicativo de pedidos para restaurante: cardápio visual, pedido pelo garçom ou pelo cliente, e comanda digital direto para a cozinha.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #f6f3ec;
+    --surface: #ffffff;
+    --surface-alt: #efe9dc;
+    --ink: #221d16;
+    --ink-soft: #55503f;
+    --border: #e2dac8;
+    --accent: #3c5c46;
+    --accent-soft: #dfe8de;
+    --copper: #b1712f;
+    --copper-soft: #f1e0c5;
+    --danger: #9c3b2c;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #17140f;
+      --surface: #211c15;
+      --surface-alt: #2a231a;
+      --ink: #f1ece0;
+      --ink-soft: #b9b0a0;
+      --border: #3a3225;
+      --accent: #86b494;
+      --accent-soft: #263028;
+      --copper: #e0a862;
+      --copper-soft: #372a19;
+      --danger: #e0836e;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg: #17140f;
+    --surface: #211c15;
+    --surface-alt: #2a231a;
+    --ink: #f1ece0;
+    --ink-soft: #b9b0a0;
+    --border: #3a3225;
+    --accent: #86b494;
+    --accent-soft: #263028;
+    --copper: #e0a862;
+    --copper-soft: #372a19;
+    --danger: #e0836e;
+    color-scheme: dark;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Public Sans", -apple-system, sans-serif;
+    line-height:1.6;
+    padding-inline:0;
+  }
+  h1,h2,h3{
+    font-family:"Fraunces", Georgia, serif;
+    text-wrap:balance;
+    color:var(--ink);
+    margin:0;
+  }
+  .wrap{max-width:920px;margin-inline:auto;padding-inline:24px;}
+
+  /* ---------- header ---------- */
+  header.cover{
+    border-bottom:1px solid var(--border);
+    padding-block:56px 40px;
+    background:
+      radial-gradient(600px 240px at 85% -10%, var(--accent-soft) 0%, transparent 70%),
+      var(--surface);
+  }
+  .eyebrow-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px;}
+  .pill{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    padding:5px 11px;
+    border-radius:99px;
+    border:1px solid var(--border);
+    color:var(--ink-soft);
+    background:var(--surface-alt);
+  }
+  .pill.status{color:var(--copper);border-color:var(--copper-soft);background:var(--copper-soft);}
+  h1.title{font-size:clamp(2.2rem,6vw,3.4rem);font-weight:600;line-height:1.05;}
+  .title em{font-style:italic;font-weight:500;color:var(--accent);}
+  .subtitle{font-size:1.05rem;color:var(--ink-soft);max-width:56ch;margin-top:14px;}
+  .meta-row{display:flex;flex-wrap:wrap;gap:22px;margin-top:26px;font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink-soft);}
+  .meta-row b{color:var(--ink);font-weight:600;}
+
+  /* ---------- nav ---------- */
+  nav.toc{
+    position:sticky;top:env(safe-area-inset-top,0px);z-index:5;
+    background:color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
+  }
+  nav.toc .scroller{
+    display:flex;gap:6px;overflow-x:auto;padding:11px 24px;max-width:920px;margin-inline:auto;
+    scrollbar-width:none;
+  }
+  nav.toc .scroller::-webkit-scrollbar{display:none;}
+  nav.toc a{
+    flex:none;font-size:12.5px;font-weight:600;color:var(--ink-soft);text-decoration:none;
+    padding:6px 12px;border-radius:99px;white-space:nowrap;border:1px solid transparent;
+  }
+  nav.toc a:hover{border-color:var(--border);color:var(--ink);}
+
+  /* ---------- sections ---------- */
+  section{padding-block:44px;border-bottom:1px solid var(--border);}
+  section:last-of-type{border-bottom:none;}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:22px;}
+  .sec-num{font-family:"IBM Plex Mono",monospace;color:var(--copper);font-size:13px;font-weight:600;}
+  h2{font-size:1.55rem;font-weight:600;}
+  h3{font-size:1.1rem;font-weight:600;margin-bottom:8px;}
+  p{margin:0 0 12px;}
+  p.lede{font-size:1.05rem;color:var(--ink-soft);max-width:66ch;}
+  .lead-in{color:var(--ink-soft);max-width:70ch;margin-bottom:24px;}
+
+  /* ---------- personas ---------- */
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  @media (max-width:820px){.grid-4{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:520px){.grid-4{grid-template-columns:1fr;}}
+  .persona{
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .persona .glyph{
+    width:34px;height:34px;border-radius:9px;background:var(--accent-soft);
+    display:flex;align-items:center;justify-content:center;color:var(--accent);
+  }
+  .persona h3{font-size:1rem;}
+  .persona .need{font-size:12.5px;color:var(--copper);font-weight:600;border-top:1px dashed var(--border);padding-top:8px;margin-top:2px;}
+  .persona p{font-size:13.5px;color:var(--ink-soft);margin:0;}
+
+  /* ---------- flows ---------- */
+  .flow-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  @media (max-width:760px){.flow-cols{grid-template-columns:1fr;}}
+  .flow-col h3{display:flex;align-items:center;gap:8px;}
+  .flow-col .tag{font-size:11px;font-family:"IBM Plex Mono",monospace;color:var(--ink-soft);border:1px solid var(--border);padding:2px 8px;border-radius:99px;}
+  ol.steps{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:0;}
+  ol.steps li{
+    position:relative;padding:0 0 16px 26px;font-size:13.5px;color:var(--ink-soft);
+    border-left:2px solid var(--border);margin-left:8px;
+  }
+  ol.steps li:last-child{border-color:transparent;padding-bottom:0;}
+  ol.steps li::before{
+    content:counter(step);counter-increment:step;
+    position:absolute;left:-11px;top:-1px;width:20px;height:20px;border-radius:50%;
+    background:var(--surface);border:2px solid var(--accent);color:var(--accent);
+    font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;
+  }
+  ol.steps{counter-reset:step;}
+
+  /* ---------- feature lists ---------- */
+  .feat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 20px;}
+  @media (max-width:640px){.feat-grid{grid-template-columns:1fr;}}
+  .feat{display:flex;gap:10px;align-items:flex-start;font-size:14px;}
+  .feat svg{flex:none;margin-top:3px;color:var(--accent);}
+  .feat b{display:block;font-weight:600;}
+  .feat span{color:var(--ink-soft);font-size:13px;}
+
+  .adv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  @media (max-width:820px){.adv-grid{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:520px){.adv-grid{grid-template-columns:1fr;}}
+  .adv-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .adv-card b{font-size:13.5px;display:block;margin-bottom:4px;}
+  .adv-card span{font-size:12.5px;color:var(--ink-soft);}
+
+  /* ---------- menu card demo ---------- */
+  .demo-row{display:flex;gap:24px;align-items:center;flex-wrap:wrap;}
+  .menu-card{
+    width:230px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;
+    box-shadow:0 8px 24px -12px rgba(0,0,0,.25);
+  }
+  .menu-card .photo{
+    height:140px;background:
+      linear-gradient(135deg, var(--copper-soft), var(--accent-soft));
+    display:flex;align-items:center;justify-content:center;color:var(--ink-soft);
+  }
+  .menu-card .body{padding:14px;}
+  .menu-card .row1{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .menu-card .row1 b{font-family:"Fraunces",serif;font-size:1rem;}
+  .menu-card .price{font-family:"IBM Plex Mono",monospace;color:var(--copper);font-weight:600;font-size:13.5px;}
+  .menu-card .desc{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+  .menu-card .badges{display:flex;gap:6px;margin-top:10px;}
+  .menu-card .badge{font-size:10px;font-family:"IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.04em;background:var(--accent-soft);color:var(--accent);padding:3px 7px;border-radius:99px;}
+  .demo-notes{flex:1;min-width:220px;font-size:13.5px;color:var(--ink-soft);}
+  .demo-notes li{margin-bottom:6px;}
+
+  /* ---------- architecture diagram ---------- */
+  .arch{display:flex;flex-direction:column;gap:10px;}
+  .arch-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .arch-box{
+    flex:1;min-width:150px;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:12px 14px;font-size:12.5px;
+  }
+  .arch-box b{display:block;font-size:13px;margin-bottom:3px;}
+  .arch-box span{color:var(--ink-soft);}
+  .arch-box.core{border-color:var(--accent);background:var(--accent-soft);}
+  .arch-arrow{display:flex;justify-content:center;color:var(--ink-soft);font-size:12px;}
+
+  /* ---------- KPI table ---------- */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table caption{text-align:left;margin-bottom:6px;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono",monospace;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);}
+  td b{font-variant-numeric:tabular-nums;}
+  .tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;}
+  .tablewrap table{border:none;}
+  .tablewrap th,.tablewrap td{border-bottom:1px solid var(--border);}
+  .tablewrap tr:last-child td{border-bottom:none;}
+
+  /* ---------- roadmap ---------- */
+  .phases{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;position:relative;}
+  @media (max-width:760px){.phases{grid-template-columns:1fr;}}
+  .phase{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;}
+  .phase .num{
+    font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--copper);
+    border:1px solid var(--copper-soft);background:var(--copper-soft);padding:3px 9px;border-radius:99px;
+  }
+  .phase h3{margin-top:10px;font-size:1.05rem;}
+  .phase ul{margin:10px 0 0;padding-left:18px;font-size:13px;color:var(--ink-soft);}
+  .phase ul li{margin-bottom:5px;}
+
+  /* ---------- risks ---------- */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  @media (max-width:700px){.two-col{grid-template-columns:1fr;}}
+  .risk-list{list-style:none;margin:0;padding:0;font-size:13.5px;}
+  .risk-list li{padding:10px 0;border-bottom:1px dashed var(--border);color:var(--ink-soft);}
+  .risk-list li:last-child{border-bottom:none;}
+  .risk-list b{color:var(--ink);display:block;font-size:13.5px;}
+
+  footer{padding:40px 0 60px;text-align:center;}
+  footer p{color:var(--ink-soft);font-size:13px;}
+</style>
+
+<header class="cover">
+  <div class="wrap">
+    <div class="eyebrow-row">
+      <span class="pill">PRD · v1.0</span>
+      <span class="pill">29/09/2026</span>
+      <span class="pill status">Rascunho para validação</span>
+    </div>
+    <h1 class="title">Mesa Viva<br><em>pedido direto da mesa até a cozinha</em></h1>
+    <p class="subtitle">Documento de requisitos do aplicativo de pedidos do restaurante: cardápio visual, pedido pelo garçom ou pelo próprio cliente, e comanda digital em tempo real na cozinha.</p>
+    <div class="meta-row">
+      <span><b>Produto</b> · restaurante único</span>
+      <span><b>Perfis</b> · garçom + cliente</span>
+      <span><b>Fases</b> · MVP → Fidelização → Inteligência</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="scroller">
+    <a href="#visao">Visão geral</a>
+    <a href="#personas">Personas</a>
+    <a href="#fluxos">Fluxos</a>
+    <a href="#mvp">MVP</a>
+    <a href="#avancado">Avançado</a>
+    <a href="#requisitos">Requisitos</a>
+    <a href="#arquitetura">Arquitetura</a>
+    <a href="#design">Design</a>
+    <a href="#kpis">Métricas</a>
+    <a href="#roadmap">Roadmap</a>
+    <a href="#riscos">Riscos</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <section id="visao">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Visão geral</h2></div>
+    <p class="lede">O atendimento tradicional depende do garçom para apresentar o cardápio, anotar pedidos à mão e levá-los até a cozinha — o que gera erros de pedido, demora em horários de pico e nenhuma visibilidade do que está vendendo mais.</p>
+    <p class="lede"><b>Mesa Viva</b> é um cardápio digital fotográfico que roda tanto no app do garçom quanto no tablet da mesa: o cliente vê o prato antes de pedir, monta o pedido sozinho ou com ajuda do garçom, e tudo chega instantaneamente à cozinha — sem papel, sem transcrição, sem adivinhação.</p>
+  </section>
+
+  <section id="personas">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Personas</h2></div>
+    <div class="grid-4">
+      <div class="persona">
+        <div class="glyph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg></div>
+        <h3>Cliente na mesa</h3>
+        <p>Senta à mesa, com ou sem prática em apps.</p>
+        <div class="need">Pedir sem esperar o garçom</div>
+      </div>
+      <div class="persona">
+        <div class="glyph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16M6 19V9l6-4 6 4v10"/></svg></div>
+        <h3>Garçom</h3>
+        <p>Atende várias mesas ao mesmo tempo.</p>
+        <div class="need">Lançar e fechar contas rápido</div>
+      </div>
+      <div class="persona">
+        <div class="glyph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l2 6-8 12L4 9z"/></svg></div>
+        <h3>Cozinha (KDS)</h3>
+        <p>Prepara os pratos assim que chegam os pedidos.</p>
+        <div class="need">Ver e priorizar sem papel</div>
+      </div>
+      <div class="persona">
+        <div class="glyph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m6 14V9m6 10v-6"/></svg></div>
+        <h3>Gerente / Admin</h3>
+        <p>Dono ou gerente do restaurante.</p>
+        <div class="need">Cardápio, mesas e relatórios</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="fluxos">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Fluxos principais</h2></div>
+    <div class="flow-cols">
+      <div class="flow-col">
+        <h3>Cliente <span class="tag">tablet da mesa</span></h3>
+        <ol class="steps">
+          <li>Senta e ativa o tablet da mesa</li>
+          <li>Navega o cardápio por categoria e fotos</li>
+          <li>Customiza o item e adiciona ao carrinho</li>
+          <li>Confirma — pedido vai direto à cozinha</li>
+          <li>Acompanha o status em tempo real</li>
+          <li>Chama o garçom ou pede a conta com 1 toque</li>
+        </ol>
+      </div>
+      <div class="flow-col">
+        <h3>Garçom <span class="tag">app mobile</span></h3>
+        <ol class="steps">
+          <li>Vê o mapa de mesas do salão</li>
+          <li>Abre a mesa e lança itens quando pedido</li>
+          <li>Envia para a cozinha com um toque</li>
+          <li>Recebe aviso quando o prato fica pronto</li>
+          <li>Fecha a conta, com divisão se necessário</li>
+        </ol>
+      </div>
+      <div class="flow-col">
+        <h3>Cozinha <span class="tag">painel KDS</span></h3>
+        <ol class="steps">
+          <li>Pedido aparece por mesa e ordem de chegada</li>
+          <li>Marca item como "em preparo"</li>
+          <li>Marca item como "pronto"</li>
+          <li>Cliente e garçom são avisados automaticamente</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="mvp">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Funcionalidades — MVP</h2></div>
+    <p class="lead-in">O essencial para o primeiro lançamento do Mesa Viva.</p>
+    <div class="feat-grid">
+      <div class="feat">✓<b>Cardápio visual</b><span>Fotos, categorias, descrição e preço de cada prato.</span></div>
+      <div class="feat">✓<b>Filtros e busca</b><span>Por categoria, restrição alimentar e faixa de preço.</span></div>
+      <div class="feat">✓<b>Carrinho com customização</b><span>Ponto da carne, remoção de ingrediente, observações.</span></div>
+      <div class="feat">✓<b>Envio direto à cozinha</b><span>Pedido chega ao KDS em tempo real, sem papel.</span></div>
+      <div class="feat">✓<b>Status em tempo real</b><span>Recebido → em preparo → pronto → entregue.</span></div>
+      <div class="feat">✓<b>App do garçom</b><span>Mapa de mesas, lançamento de pedido, fechamento de conta.</span></div>
+      <div class="feat">✓<b>Ações rápidas</b><span>"Chamar garçom" e "pedir a conta" com um toque.</span></div>
+      <div class="feat">✓<b>Painel administrativo</b><span>Cadastro de cardápio, mesas e garçons.</span></div>
+    </div>
+  </section>
+
+  <section id="avancado">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Funcionalidades avançadas</h2></div>
+    <p class="lead-in">Diferenciais de experiência para as próximas fases — ver <a href="#roadmap" style="color:var(--copper)">roadmap</a>.</p>
+    <div class="adv-grid">
+      <div class="adv-card"><b>Recomendações inteligentes</b><span>Upsell baseado no que já está no carrinho.</span></div>
+      <div class="adv-card"><b>Divisão de conta</b><span>Por item consumido ou split igualitário.</span></div>
+      <div class="adv-card"><b>Pagamento integrado</b><span>Pix, cartão e carteiras digitais no próprio app.</span></div>
+      <div class="adv-card"><b>Programa de fidelidade</b><span>Pontos, cupons e cashback.</span></div>
+      <div class="adv-card"><b>Avaliação pós-refeição</b><span>Nota por prato e comentário livre.</span></div>
+      <div class="adv-card"><b>Cardápio multi-idioma</b><span>Essencial para público turista.</span></div>
+      <div class="adv-card"><b>Notificações push</b><span>Pedido confirmado, prato saindo, tempo estimado.</span></div>
+      <div class="adv-card"><b>Harmonização e combos</b><span>Ex: vinho sugerido para o prato escolhido.</span></div>
+      <div class="adv-card"><b>Modo acessibilidade</b><span>Alto contraste, fonte ampliada, leitura em voz alta.</span></div>
+      <div class="adv-card"><b>Fila de espera / reserva</b><span>Antes mesmo do cliente chegar ao salão.</span></div>
+      <div class="adv-card"><b>Repetir pedido</b><span>Um toque para pedir "o de sempre".</span></div>
+      <div class="adv-card"><b>Aviso direto à cozinha</b><span>Canal do garçom para pedidos fora do padrão.</span></div>
+    </div>
+  </section>
+
+  <section id="requisitos">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Requisitos não funcionais</h2></div>
+    <div class="tablewrap">
+      <table>
+        <tr><th>Requisito</th><th>Alvo</th></tr>
+        <tr><td>Carregamento do cardápio</td><td>&lt; 2s com imagens otimizadas</td></tr>
+        <tr><td>Atualização de status</td><td>&lt; 1s via conexão em tempo real</td></tr>
+        <tr><td>Disponibilidade</td><td>≥ 99,5% no horário de operação</td></tr>
+        <tr><td>Modo offline do garçom</td><td>Lança pedido mesmo com instabilidade de rede</td></tr>
+        <tr><td>Pagamento</td><td>Gateway certificado PCI-DSS, sem guardar dados no app</td></tr>
+        <tr><td>Concorrência</td><td>Múltiplas mesas e garçons simultâneos sem conflito</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="arquitetura">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Arquitetura técnica (alto nível)</h2></div>
+    <p class="lead-in">Indicativo, para orientar decisões futuras — não é uma decisão final de stack.</p>
+    <div class="arch">
+      <div class="arch-row">
+        <div class="arch-box"><b>App do cliente</b><span>PWA responsiva no tablet da mesa</span></div>
+        <div class="arch-box"><b>App do garçom</b><span>React Native / Flutter</span></div>
+        <div class="arch-box"><b>Painel KDS</b><span>Web, otimizado para tela grande</span></div>
+      </div>
+      <div class="arch-arrow">↓ tempo real (WebSockets) ↓</div>
+      <div class="arch-row">
+        <div class="arch-box core"><b>API + backend</b><span>REST/GraphQL · Node.js</span></div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-row">
+        <div class="arch-box"><b>Banco de dados</b><span>PostgreSQL</span></div>
+        <div class="arch-box"><b>Storage + CDN</b><span>Fotos dos pratos</span></div>
+        <div class="arch-box"><b>Painel admin</b><span>Dashboard web do gerente</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="design">
+    <div class="sec-head"><span class="sec-num">08</span><h2>Diretrizes de design/UX</h2></div>
+    <div class="demo-row">
+      <div class="menu-card">
+        <div class="photo">foto do prato</div>
+        <div class="body">
+          <div class="row1"><b>Risoto de Funghi</b><span class="price">R$ 54</span></div>
+          <div class="desc">Arbório, cogumelos frescos, parmesão 24 meses</div>
+          <div class="badges"><span class="badge">Vegetariano</span><span class="badge">Mais pedido</span></div>
+        </div>
+      </div>
+      <ul class="demo-notes">
+        <li><b>Foto em destaque</b> — o prato é o protagonista do card, não o texto.</li>
+        <li><b>Preço e badges visíveis</b> sem precisar tocar no item.</li>
+        <li><b>Poucos toques até pedir</b>: ver → customizar → adicionar → confirmar.</li>
+        <li><b>Carrinho sempre acessível</b>, com contador e valor total flutuante.</li>
+        <li><b>Status em timeline clara</b>, do "recebido" ao "entregue".</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="kpis">
+    <div class="sec-head"><span class="sec-num">09</span><h2>Métricas de sucesso</h2></div>
+    <div class="tablewrap">
+      <table>
+        <tr><th>KPI</th><th>Por quê</th></tr>
+        <tr><td>Tempo até o 1º pedido confirmado</td><td>Mede agilidade do atendimento inicial</td></tr>
+        <tr><td>Tempo pedido → prato entregue</td><td>Mede eficiência da cozinha e do garçom</td></tr>
+        <tr><td>Taxa de erro de pedido</td><td>Meta: próxima de zero</td></tr>
+        <tr><td>Ticket médio por mesa</td><td>Efeito de fotos, upsell e recomendações</td></tr>
+        <tr><td>NPS / satisfação</td><td>Via avaliação pós-refeição</td></tr>
+        <tr><td>Adoção do pedido autônomo</td><td>Cliente pedindo direto vs. via garçom</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="roadmap">
+    <div class="sec-head"><span class="sec-num">10</span><h2>Roadmap em fases</h2></div>
+    <div class="phases">
+      <div class="phase">
+        <span class="num">Fase 1</span>
+        <h3>MVP</h3>
+        <ul>
+          <li>Cardápio digital + carrinho</li>
+          <li>Envio para cozinha (KDS)</li>
+          <li>Status em tempo real</li>
+          <li>App do garçom + painel admin</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <span class="num">Fase 2</span>
+        <h3>Monetização e fidelização</h3>
+        <ul>
+          <li>Pagamento integrado</li>
+          <li>Divisão de conta</li>
+          <li>Programa de fidelidade</li>
+          <li>Avaliações + analytics</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <span class="num">Fase 3</span>
+        <h3>Inteligência e expansão</h3>
+        <ul>
+          <li>Recomendações personalizadas</li>
+          <li>Harmonização e combos</li>
+          <li>Multi-idioma</li>
+          <li>Fila de espera / reservas</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="riscos">
+    <div class="sec-head"><span class="sec-num">11</span><h2>Riscos e fora de escopo</h2></div>
+    <div class="two-col">
+      <div>
+        <h3>Riscos</h3>
+        <ul class="risk-list">
+          <li><b>Resistência do cliente</b>manter sempre a opção de pedir via garçom</li>
+          <li><b>Dependência de Wi-Fi</b>estabilidade da rede do salão é crítica</li>
+          <li><b>Custo de hardware</b>tablets por mesa exigem investimento</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Fora de escopo (v1)</h3>
+        <ul class="risk-list">
+          <li><b>Multi-restaurante / SaaS</b>produto sob medida para um único local</li>
+          <li><b>Delivery / retirada</b>fluxo é só para consumo no salão</li>
+          <li><b>Integração com estoque</b>não incluída nesta versão</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <p>Mesa Viva — PRD v1.0 · próximo passo: validar prioridades do roadmap antes da implementação.</p>
+</footer>
