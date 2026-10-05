@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { ChefHat, ClipboardList, Settings, UtensilsCrossed } from 'lucide-react'
-import { INITIAL_TABLES } from '../data/tables'
+import { BookOpen, ChefHat, ClipboardList, Lock, Settings, UtensilsCrossed } from 'lucide-react'
+import { useRestaurantStore } from '../store/useRestaurantStore'
+import { getUnlockedTableId } from '../lib/tableSession'
 import DishImage from '../components/DishImage'
 import Logo from '../components/Logo'
 
@@ -8,10 +9,14 @@ const HERO_IMAGE =
   'https://images.unsplash.com/photo-1533777857889-4be7c70b33f7?w=1600&q=80&auto=format&fit=crop'
 
 export default function RoleSelect() {
+  const tables = useRestaurantStore((s) => s.tables)
+  const unlockedTableId = getUnlockedTableId()
+  const unlockedTable = unlockedTableId ? tables.find((t) => t.id === unlockedTableId) : null
+
   return (
     <div className="flex min-h-full flex-col">
       <div className="relative h-64 w-full flex-none overflow-hidden sm:h-80 lg:h-96">
-        <DishImage src={HERO_IMAGE} alt="Mesa Viva" className="h-full w-full" />
+        <DishImage src={HERO_IMAGE} alt="Diferente D+" className="h-full w-full" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
         <div
           className="absolute inset-0 flex flex-col items-center justify-end px-6 pb-8 text-center sm:pb-10"
@@ -41,18 +46,41 @@ export default function RoleSelect() {
               <UtensilsCrossed size={20} />
             </div>
             <h2 className="mt-3 font-display text-lg font-medium lg:text-xl">Cliente</h2>
-            <p className="mt-1 text-[13px] text-ink-soft">Escolha a mesa para pedir.</p>
-            <div className="mt-4 grid grid-cols-4 gap-2">
-              {INITIAL_TABLES.map((t) => (
+            {unlockedTable ? (
+              <>
+                <p className="mt-1 flex-1 text-[13px] text-ink-soft">Sua mesa liberada:</p>
                 <Link
-                  key={t.id}
-                  to={`/mesa/${t.id}`}
-                  className="flex aspect-square min-h-11 items-center justify-center rounded-lg border border-border font-mono text-sm font-semibold text-ink-soft transition hover:border-accent hover:text-accent"
+                  to={`/mesa/${unlockedTable.id}`}
+                  className="mt-4 flex items-center justify-center rounded-xl border border-accent bg-accent-soft py-3 font-mono text-lg font-semibold text-accent transition hover:bg-accent hover:text-white"
                 >
-                  {t.number}
+                  Mesa {unlockedTable.number}
                 </Link>
-              ))}
-            </div>
+                <Link
+                  to="/liberar-mesa"
+                  className="mt-3 flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-ink-soft hover:text-ink"
+                >
+                  <Lock size={12} /> Trocar mesa
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="mt-1 flex-1 text-[13px] text-ink-soft">
+                  Veja o cardápio livremente ou peça para o garçom liberar sua mesa.
+                </p>
+                <Link
+                  to="/cardapio"
+                  className="mt-4 flex items-center justify-center gap-1.5 rounded-full bg-accent py-2.5 text-[13px] font-semibold text-white transition hover:bg-accent/90"
+                >
+                  <BookOpen size={15} /> Ver cardápio
+                </Link>
+                <Link
+                  to="/liberar-mesa"
+                  className="mt-3 flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-ink-soft hover:text-ink"
+                >
+                  <Lock size={12} /> Sou garçom: liberar mesa
+                </Link>
+              </>
+            )}
           </div>
 
           <Link

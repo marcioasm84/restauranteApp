@@ -3,6 +3,11 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+# nginx.conf proxies /api and /ws to the backend container, so the build
+# calls those as same-origin paths — works behind any origin (LAN IP,
+# localhost, an ngrok tunnel, ...) without baking in a fixed URL.
+ENV VITE_API_URL=same-origin
+ENV VITE_WS_URL=same-origin
 RUN npm run build
 
 FROM nginx:alpine

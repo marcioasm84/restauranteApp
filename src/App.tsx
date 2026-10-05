@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import RoleSelect from './pages/RoleSelect'
 import CustomerApp from './pages/customer/CustomerApp'
+import MenuPreview from './pages/customer/MenuPreview'
+import UnlockTable from './pages/customer/UnlockTable'
 import TableMap from './pages/waiter/TableMap'
 import TableDetail from './pages/waiter/TableDetail'
 import KitchenBoard from './pages/kitchen/KitchenBoard'
@@ -20,14 +22,37 @@ export default function App() {
       <Routes>
         <Route path="/" element={<RoleSelect />} />
         <Route path="/mesa/:tableId" element={<CustomerApp />} />
-        <Route path="/garcom" element={<TableMap />} />
-        <Route path="/garcom/:tableId" element={<TableDetail />} />
-        <Route path="/cozinha" element={<KitchenBoard />} />
+        <Route path="/cardapio" element={<MenuPreview />} />
+        <Route path="/liberar-mesa" element={<UnlockTable />} />
+        <Route
+          path="/garcom"
+          element={
+            <RequireAuth roles={['garcom']}>
+              <TableMap />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/garcom/:tableId"
+          element={
+            <RequireAuth roles={['garcom']}>
+              <TableDetail />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/cozinha"
+          element={
+            <RequireAuth roles={['cozinha']}>
+              <KitchenBoard />
+            </RequireAuth>
+          }
+        />
         <Route path="/login" element={<LoginPage />} />
         <Route
           path="/admin"
           element={
-            <RequireAuth>
+            <RequireAuth roles={['admin']}>
               <AdminProductList />
             </RequireAuth>
           }
@@ -35,7 +60,7 @@ export default function App() {
         <Route
           path="/admin/novo"
           element={
-            <RequireAuth>
+            <RequireAuth roles={['admin']}>
               <AdminProductForm />
             </RequireAuth>
           }
@@ -43,7 +68,7 @@ export default function App() {
         <Route
           path="/admin/:id/editar"
           element={
-            <RequireAuth>
+            <RequireAuth roles={['admin']}>
               <AdminProductForm />
             </RequireAuth>
           }
@@ -51,7 +76,7 @@ export default function App() {
         <Route
           path="/admin/analytics"
           element={
-            <RequireAuth>
+            <RequireAuth roles={['admin']}>
               <AdminAnalytics />
             </RequireAuth>
           }

@@ -1,5 +1,7 @@
 export type Badge = 'vegetariano' | 'sem-gluten' | 'picante' | 'mais-pedido' | 'novo'
 
+export type Role = 'admin' | 'garcom' | 'cozinha'
+
 export interface MenuItemCustomization {
   pontoCarne?: string[]
   removiveis?: string[]

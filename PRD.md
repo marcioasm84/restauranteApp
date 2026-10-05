@@ -164,13 +164,16 @@ Pagamento (simulado — Pix/cartão/carteira, sem gateway real), divisão de con
 **Fase 3 — Inteligência e Expansão**
 Recomendações personalizadas (IA), harmonização/combos, multi-idioma, fila de espera/reservas, modo acessibilidade completo.
 
-**Fase 4 — Containerização e Ambiente Local**
+**Fase 4 — Containerização e Ambiente Local** ✅ Implementada
 Docker (backend + frontend), `docker-compose` com PostgreSQL e Redis, migração da persistência de arquivos JSON para banco de dados real. Ver seção 12.
 
-**Fase 5 — Implantação em Produção (AWS)**
-ECS Fargate, RDS for PostgreSQL, ElastiCache for Redis, S3 + CloudFront, CI/CD via GitHub Actions, infraestrutura como código via AWS CDK. Ver seção 12.
+**Fase 5 — Implantação em Produção (AWS)** ✅ Infraestrutura como código pronta — falta rodar o deploy
+ECS Fargate, RDS for PostgreSQL, ElastiCache for Redis, S3 + CloudFront, CI/CD via GitHub Actions, infraestrutura como código via AWS CDK (`infra/`). A implantação em si (criar os recursos reais na AWS) é um passo manual, deliberadamente fora do que a automação faz sozinha — ver [AWS_DEPLOYMENT.md](./AWS_DEPLOYMENT.md) para o passo a passo completo, incluindo custo estimado e credenciais geradas.
 
 > As fases 4 e 5 são de infraestrutura, não de produto — não dependem da Fase 3 e podem ser priorizadas em paralelo ou antes dela.
+
+**Fase 6 — Multi-tenancy** e **Fase 7 — SaaS (Cobrança e Liberação de Acesso)**
+Transformam o produto de single-tenant em plataforma multi-cliente, com área de Super Admin e cobrança recorrente por mensalidade. Documentadas em detalhe em [PRD_multiclientes.md](./PRD_multiclientes.md), já que mudam decisões estruturais do PRD original (seção 11). Pré-requisito: Fases 4 e 5.
 
 ---
 
@@ -182,7 +185,7 @@ ECS Fargate, RDS for PostgreSQL, ElastiCache for Redis, S3 + CloudFront, CI/CD v
 - Custo de hardware (tablets) para mesas, se optado por dispositivos dedicados.
 
 **Fora de escopo (nesta versão):**
-- Suporte a múltiplos restaurantes/franquias (modelo SaaS) — produto é sob medida para um único estabelecimento.
+- ~~Suporte a múltiplos restaurantes/franquias (modelo SaaS) — produto é sob medida para um único estabelecimento.~~ Decisão revertida — ver [PRD_multiclientes.md](./PRD_multiclientes.md) (Fases 6 e 7).
 - Delivery/pedido para retirada fora do restaurante.
 - Integração com sistemas de estoque/compras.
 
@@ -220,6 +223,8 @@ O protótipo atual (Fases 1 e 2) roda em modo demonstração: backend Node/Expre
 
 **Objetivo:** hospedar a aplicação em produção na AWS, com serviços gerenciados equivalentes a cada peça da stack.
 
+**Status:** infraestrutura como código implementada em `infra/` (AWS CDK) e pipeline em `.github/workflows/deploy.yml`. Passo a passo completo de implantação, estimativa de custo e credenciais geradas em [AWS_DEPLOYMENT.md](./AWS_DEPLOYMENT.md). Dois ajustes em relação à tabela original: RDS fica Single-AZ (não Multi-AZ) e sem Aurora por enquanto — adequado ao volume de um único restaurante, upgrade possível sem mudar a aplicação; DNS + ACM (linha abaixo) ficou opcional — por padrão tanto o frontend quanto o backend já saem com HTTPS válido via domínios `*.cloudfront.net`, sem precisar comprar domínio algum.
+
 | Componente | Serviço AWS | Por quê |
 |---|---|---|
 | Frontend (build estático) | S3 + CloudFront | Hospedagem barata e CDN global para a SPA |
@@ -238,6 +243,22 @@ O protótipo atual (Fases 1 e 2) roda em modo demonstração: backend Node/Expre
 
 ### 12.5 Segurança
 
-- Autenticação do admin migrada de token em memória para JWT assinado.
+- Autenticação por **perfil** (admin, garçom, cozinha), migrada de token em memória para JWT assinado — ver seção 13 para os acessos de cada perfil.
 - HTTPS obrigatório de ponta a ponta (ACM no CloudFront/ALB).
-- Segredos (credenciais de banco, JWT secret, senha do admin) fora do código-fonte, geridos pelo Secrets Manager/SSM.
+- Segredos (credenciais de banco, JWT secret, senhas de cada perfil) fora do código-fonte, geridos pelo Secrets Manager/SSM.
+
+---
+
+## 13. Acessos e Credenciais (Demonstração)
+
+Garçom, cozinha e administração exigem login (usuário/senha) para entrar. O cliente **nunca loga**: por padrão só vê o cardápio (`/cardapio`); para fazer pedidos numa mesa, um garçom (ou o administrador) precisa "liberar" aquela mesa informando sua própria senha no aparelho do cliente — e isso precisa ser repetido toda vez que o aparelho mudar de mesa (ver seção 3.1 e 5).
+
+Cada perfil só acessa sua própria área — **exceto o administrador, que acessa tudo** (inclusive garçom e cozinha, e pode liberar mesas no lugar de um garçom).
+
+| Perfil | Acessa | Usuário (demo) | Senha (demo) | Variáveis de ambiente |
+|---|---|---|---|---|
+| Administrador | `/admin` (cardápio, relatórios) + garçom + cozinha + liberar mesas | `admin` | `mesaviva123` | `ADMIN_USERNAME` / `ADMIN_PASSWORD` |
+| Garçom | `/garcom` (mapa de mesas, lançar pedidos, fechar conta) + liberar mesas para o cliente | `garcom` | `garcom123` | `WAITER_USERNAME` / `WAITER_PASSWORD` |
+| Cozinha | `/cozinha` (painel de pedidos — KDS) | `cozinha` | `cozinha123` | `KITCHEN_USERNAME` / `KITCHEN_PASSWORD` |
+
+As senhas de demonstração ficam nos `.env.example` do projeto; em produção, cada uma é sobrescrita via variável de ambiente (Secrets Manager/SSM na AWS, ver 12.4) e nunca versionada em texto puro.

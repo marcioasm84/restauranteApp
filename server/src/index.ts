@@ -2,7 +2,7 @@ import { createServer } from 'node:http'
 import express from 'express'
 import cors from 'cors'
 import { WebSocketServer, type WebSocket } from 'ws'
-import { isValidToken, login } from './auth.ts'
+import { hasRole, login } from './auth.ts'
 import { getAnalyticsSummary } from './analytics.ts'
 import { createBill, getBill } from './billingStore.ts'
 import { getAccount, settleBill } from './loyaltyStore.ts'
@@ -48,18 +48,18 @@ app.post('/api/login', (req, res) => {
     res.status(400).json({ message: 'Usuário e senha são obrigatórios' })
     return
   }
-  const token = login(username, password)
-  if (!token) {
+  const result = login(username, password)
+  if (!result) {
     res.status(401).json({ message: 'Usuário ou senha inválidos' })
     return
   }
-  res.json({ token })
+  res.json(result)
 })
 
 app.get('/api/analytics', async (req, res) => {
   const auth = req.header('authorization') ?? ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : undefined
-  if (!isValidToken(token)) {
+  if (!hasRole(token, ['admin'])) {
     res.status(401).json({ message: 'Não autorizado' })
     return
   }
@@ -139,7 +139,7 @@ wss.on('connection', async (ws) => {
           await broadcastState()
           break
         case 'createMenuItem':
-          if (!isValidToken(msg.token)) {
+          if (!hasRole(msg.token, ['admin'])) {
             send(ws, { type: 'error', message: 'Não autorizado' })
             return
           }
@@ -147,7 +147,7 @@ wss.on('connection', async (ws) => {
           await broadcastMenu()
           break
         case 'updateMenuItem':
-          if (!isValidToken(msg.token)) {
+          if (!hasRole(msg.token, ['admin'])) {
             send(ws, { type: 'error', message: 'Não autorizado' })
             return
           }
@@ -155,7 +155,7 @@ wss.on('connection', async (ws) => {
           await broadcastMenu()
           break
         case 'deleteMenuItem':
-          if (!isValidToken(msg.token)) {
+          if (!hasRole(msg.token, ['admin'])) {
             send(ws, { type: 'error', message: 'Não autorizado' })
             return
           }
@@ -229,7 +229,7 @@ async function main() {
   await ensureMenuSeeded()
 
   server.listen(PORT, () => {
-    console.log(`Mesa Viva API + WebSocket rodando em http://localhost:${PORT}`)
+    console.log(`Diferente D+ API + WebSocket rodando em http://localhost:${PORT}`)
   })
 }
 

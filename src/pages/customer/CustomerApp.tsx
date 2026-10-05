@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, Navigate } from 'react-router-dom'
-import { ClipboardList, UtensilsCrossed } from 'lucide-react'
+import { useParams, useNavigate, Navigate, Link } from 'react-router-dom'
+import { ClipboardList, Lock, UtensilsCrossed } from 'lucide-react'
 import { useRestaurantStore } from '../../store/useRestaurantStore'
 import { useMenuStore } from '../../store/useMenuStore'
 import { useBillingStore } from '../../store/useBillingStore'
@@ -16,8 +16,10 @@ import Logo from '../../components/Logo'
 import PaymentModal from '../../components/PaymentModal'
 import BillReceiptModal from '../../components/BillReceiptModal'
 import ReviewModal from '../../components/ReviewModal'
+import TableUnlockForm from '../../components/TableUnlockForm'
 import OrderStatusList from './OrderStatusList'
 import { SHELL_WIDTH } from '../../lib/layout'
+import { clearUnlockedTableId, isTableUnlocked } from '../../lib/tableSession'
 
 type Tab = 'menu' | 'status'
 type CheckoutStep = 'none' | 'payment' | 'receipt' | 'review'
@@ -29,6 +31,8 @@ const READY_MESSAGES: Partial<Record<OrderStatus, (id: string) => string>> = {
 
 export default function CustomerApp() {
   const { tableId } = useParams<{ tableId: string }>()
+  const navigate = useNavigate()
+  const [unlocked, setUnlocked] = useState(() => !!tableId && isTableUnlocked(tableId))
   const table = useRestaurantStore((s) => s.tables.find((t) => t.id === tableId))
   const placeOrder = useRestaurantStore((s) => s.placeOrder)
   const callWaiter = useRestaurantStore((s) => s.callWaiter)
@@ -88,6 +92,27 @@ export default function CustomerApp() {
 
   if (!table) return <Navigate to="/" replace />
 
+  if (!unlocked) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-6 px-5 py-14">
+        <Logo size="md" to="/" />
+        <TableUnlockForm
+          tableId={table.id}
+          tableNumber={table.number}
+          onUnlocked={() => setUnlocked(true)}
+        />
+        <Link to="/cardapio" className="text-[12.5px] font-semibold text-ink-soft hover:text-ink">
+          Só quero ver o cardápio
+        </Link>
+      </div>
+    )
+  }
+
+  const handleChangeTable = () => {
+    clearUnlockedTableId()
+    navigate('/liberar-mesa')
+  }
+
   const handleAddLine = (line: CartLine) => setCart((prev) => [...prev, line])
   const handleChangeQty = (lineId: string, quantity: number) =>
     setCart((prev) => prev.map((l) => (l.lineId === lineId ? { ...l, quantity } : l)))
@@ -121,6 +146,12 @@ export default function CustomerApp() {
             <h1 className="font-display text-xl font-semibold leading-tight text-ink md:text-2xl">
               Mesa {table.number}
             </h1>
+            <button
+              onClick={handleChangeTable}
+              className="flex items-center gap-1 text-[12px] font-semibold text-ink-soft hover:text-ink"
+            >
+              <Lock size={12} /> Trocar mesa
+            </button>
           </div>
           <QuickActions
             callingWaiter={table.callingWaiter}

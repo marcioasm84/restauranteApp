@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { Lock, LogIn } from 'lucide-react'
 import Logo from '../components/Logo'
 import { loginRequest } from '../lib/api'
-import { isAuthenticated, setToken } from '../lib/auth'
+import { getRole, homeRouteForRole, isAuthenticated, setToken } from '../lib/auth'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -12,16 +12,19 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  if (isAuthenticated()) return <Navigate to="/admin" replace />
+  if (isAuthenticated()) {
+    const role = getRole()
+    return <Navigate to={role ? homeRouteForRole(role) : '/admin'} replace />
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
-      const token = await loginRequest(username, password)
-      setToken(token)
-      navigate('/admin', { replace: true })
+      const { token, role } = await loginRequest(username, password)
+      setToken(token, role)
+      navigate(homeRouteForRole(role), { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível entrar.')
     } finally {
@@ -46,7 +49,7 @@ export default function LoginPage() {
             </span>
             <div>
               <h1 className="font-display text-lg font-semibold text-ink">Acesso restrito</h1>
-              <p className="text-[12px] text-ink-soft">Administração do cardápio</p>
+              <p className="text-[12px] text-ink-soft">Equipe do restaurante</p>
             </div>
           </div>
 
@@ -96,10 +99,23 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-4 text-center text-[11.5px] text-ink-soft">
-          Acesso padrão de demonstração: <span className="font-mono">admin</span> /{' '}
-          <span className="font-mono">mesaviva123</span>
-        </p>
+        <div className="mt-4 rounded-xl border border-border bg-surface px-4 py-3 text-[11.5px] text-ink-soft">
+          <p className="mb-1.5 font-semibold uppercase tracking-wide text-ink-soft">
+            Acessos de demonstração
+          </p>
+          <p>
+            Administrador: <span className="font-mono">admin</span> /{' '}
+            <span className="font-mono">mesaviva123</span>
+          </p>
+          <p>
+            Garçom: <span className="font-mono">garcom</span> /{' '}
+            <span className="font-mono">garcom123</span>
+          </p>
+          <p>
+            Cozinha: <span className="font-mono">cozinha</span> /{' '}
+            <span className="font-mono">cozinha123</span>
+          </p>
+        </div>
       </div>
     </div>
   )

@@ -1,14 +1,20 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { ChefHat, LayoutGrid } from 'lucide-react'
+import { ChefHat, LayoutGrid, LogOut } from 'lucide-react'
 import { useRestaurantStore } from '../../store/useRestaurantStore'
 import TableCard from '../../components/TableCard'
 import Logo from '../../components/Logo'
 import { SHELL_WIDTH } from '../../lib/layout'
+import { clearToken } from '../../lib/auth'
 
 export default function TableMap() {
   const navigate = useNavigate()
   const tables = useRestaurantStore((s) => s.tables)
   const orders = useRestaurantStore((s) => s.orders)
+
+  const handleLogout = () => {
+    clearToken()
+    navigate('/login', { replace: true })
+  }
 
   const alerts = tables.filter((t) => t.callingWaiter || t.requestingBill)
 
@@ -21,12 +27,20 @@ export default function TableMap() {
             <LayoutGrid size={22} className="text-accent" /> Mapa de mesas
           </h1>
         </div>
-        <Link
-          to="/cozinha"
-          className="flex min-h-11 items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-[12.5px] font-semibold text-ink-soft hover:text-ink"
-        >
-          <ChefHat size={15} /> Ver cozinha
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/cozinha"
+            className="flex min-h-11 items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-[12.5px] font-semibold text-ink-soft hover:text-ink"
+          >
+            <ChefHat size={15} /> Ver cozinha
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="flex min-h-11 items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-[12.5px] font-semibold text-ink-soft hover:text-ink"
+          >
+            <LogOut size={15} /> Sair
+          </button>
+        </div>
       </header>
 
       {alerts.length > 0 && (

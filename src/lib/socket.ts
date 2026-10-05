@@ -46,8 +46,11 @@ const WS_PORT = 4000
 
 function buildWsUrl(): string {
   const envUrl = import.meta.env.VITE_WS_URL as string | undefined
-  if (envUrl) return envUrl
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
+  // See the matching comment in lib/api.ts — same-origin, no :4000, proxied
+  // by nginx to the backend container.
+  if (envUrl === 'same-origin') return `${protocol}://${window.location.host}/ws`
+  if (envUrl) return envUrl
   return `${protocol}://${window.location.hostname}:${WS_PORT}/ws`
 }
 

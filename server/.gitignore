@@ -5,6 +5,7 @@ node_modules
 # its content into Postgres (see src/menuStore.ts); the other files are
 # unused leftovers now that persistence lives in the database.
 data/menu.json
+data/menu.json.bak
 data/state.json
 data/bills.json
 data/loyalty.json

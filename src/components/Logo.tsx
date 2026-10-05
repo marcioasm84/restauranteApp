@@ -1,10 +1,9 @@
-import { Pizza } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const SIZES = {
-  sm: { badge: 'h-8 w-8', icon: 16, word: 'text-[15px]', gap: 'gap-2' },
-  md: { badge: 'h-10 w-10', icon: 19, word: 'text-lg', gap: 'gap-2.5' },
-  lg: { badge: 'h-14 w-14', icon: 26, word: 'text-2xl', gap: 'gap-3' },
+  sm: { badge: 'h-8 w-8', word: 'text-[15px]', gap: 'gap-2' },
+  md: { badge: 'h-10 w-10', word: 'text-lg', gap: 'gap-2.5' },
+  lg: { badge: 'h-14 w-14', word: 'text-2xl', gap: 'gap-3' },
 } as const
 
 export default function Logo({
@@ -20,14 +19,18 @@ export default function Logo({
   const content = (
     <span className={`inline-flex items-center ${s.gap}`}>
       <span
-        className={`flex ${s.badge} flex-none items-center justify-center rounded-full bg-copper text-white shadow-sm`}
+        className={`flex ${s.badge} flex-none items-center justify-center overflow-hidden rounded-full bg-black shadow-sm`}
       >
-        <Pizza size={s.icon} strokeWidth={2.25} />
+        <img
+          src="/diferente_dmais_logo.jpeg"
+          alt=""
+          className="h-full w-full object-cover"
+        />
       </span>
       <span
         className={`font-display ${s.word} font-semibold leading-none ${onDark ? 'text-white' : 'text-ink'}`}
       >
-        Mesa Viva
+        Diferente D+
       </span>
     </span>
   )

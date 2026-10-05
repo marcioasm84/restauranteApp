@@ -1,4 +1,4 @@
-# Mesa Viva
+# Diferente D+
 
 App de pedidos para restaurante — cardápio visual, pedido pelo garçom ou pelo cliente, comanda digital direto para a cozinha, pagamento com fidelidade, avaliações e um painel administrativo com relatórios. Ver [PRD.md](./PRD.md) para o documento de requisitos completo.
 
@@ -135,4 +135,4 @@ nginx.conf                    config do Nginx (SPA fallback para o react-router)
 
 ## Próximos passos
 
-Ver a seção de roadmap do [PRD.md](./PRD.md) — a Fase 5 é a implantação em produção na AWS (ECS Fargate, RDS, ElastiCache, S3/CloudFront, CI/CD). A Fase 3 (recomendações personalizadas, harmonização/combos, multi-idioma, fila de espera/reservas, acessibilidade completa) e um gateway de pagamento real continuam no roadmap de produto.
+Ver a seção de roadmap do [PRD.md](./PRD.md). A Fase 5 (implantação em produção na AWS) já tem a infraestrutura como código pronta em [infra/](./infra) — passo a passo completo, custo estimado e credenciais geradas em [AWS_DEPLOYMENT.md](./AWS_DEPLOYMENT.md). As Fases 6 e 7 (plataforma multi-cliente e cobrança SaaS) estão planejadas em [PRD_multiclientes.md](./PRD_multiclientes.md). A Fase 3 (recomendações personalizadas, harmonização/combos, multi-idioma, fila de espera/reservas, acessibilidade completa) e um gateway de pagamento real continuam no roadmap de produto.

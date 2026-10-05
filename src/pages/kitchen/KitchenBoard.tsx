@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, ChefHat, Clock } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowRight, ChefHat, Clock, LogOut } from 'lucide-react'
 import { useRestaurantStore } from '../../store/useRestaurantStore'
 import Logo from '../../components/Logo'
 import { SHELL_WIDTH } from '../../lib/layout'
+import { clearToken } from '../../lib/auth'
 import type { Order, OrderStatus } from '../../types'
 
 const COLUMNS: { status: OrderStatus; label: string; next?: OrderStatus; action?: string }[] = [
@@ -69,10 +71,16 @@ function OrderTicket({
 }
 
 export default function KitchenBoard() {
+  const navigate = useNavigate()
   const orders = useRestaurantStore((s) => s.orders)
   const tables = useRestaurantStore((s) => s.tables)
   const setOrderStatus = useRestaurantStore((s) => s.setOrderStatus)
   const [now, setNow] = useState(Date.now())
+
+  const handleLogout = () => {
+    clearToken()
+    navigate('/login', { replace: true })
+  }
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30000)
@@ -92,6 +100,12 @@ export default function KitchenBoard() {
             <ChefHat size={22} className="text-accent" /> Painel da cozinha
           </h1>
         </div>
+        <button
+          onClick={handleLogout}
+          className="flex min-h-11 items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-[12.5px] font-semibold text-ink-soft hover:text-ink"
+        >
+          <LogOut size={15} /> Sair
+        </button>
       </header>
 
       <div className="grid flex-1 gap-4 md:grid-cols-3 md:gap-5">
