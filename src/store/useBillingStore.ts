@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { socket } from '../lib/socket'
+import { getToken } from '../lib/auth'
 import type { Bill, PaymentMethod } from '../types'
 
 interface BillingStoreState {
@@ -45,7 +46,7 @@ export const useBillingStore = create<BillingStoreState>((set) => {
     reviewSubmitted: false,
     lastError: null,
 
-    payBill: (input) => socket.send({ type: 'payBill', ...input }),
+    payBill: (input) => socket.send({ type: 'payBill', ...input, token: getToken() ?? undefined }),
     submitReview: (input) => socket.send({ type: 'submitReview', ...input }),
     lookupLoyalty: (phone) => socket.send({ type: 'lookupLoyalty', phone }),
     reset: () =>

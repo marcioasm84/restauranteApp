@@ -4,12 +4,13 @@ import { useRestaurantStore } from '../../store/useRestaurantStore'
 import TableCard from '../../components/TableCard'
 import Logo from '../../components/Logo'
 import { SHELL_WIDTH } from '../../lib/layout'
-import { clearToken } from '../../lib/auth'
+import { clearToken, getDisplayName } from '../../lib/auth'
 
 export default function TableMap() {
   const navigate = useNavigate()
   const tables = useRestaurantStore((s) => s.tables)
   const orders = useRestaurantStore((s) => s.orders)
+  const displayName = getDisplayName()
 
   const handleLogout = () => {
     clearToken()
@@ -26,6 +27,7 @@ export default function TableMap() {
           <h1 className="mt-1.5 flex items-center gap-2 font-display text-2xl font-semibold text-ink md:text-3xl">
             <LayoutGrid size={22} className="text-accent" /> Mapa de mesas
           </h1>
+          {displayName && <p className="mt-0.5 text-[12.5px] text-ink-soft">Olá, {displayName}</p>}
         </div>
         <div className="flex items-center gap-2">
           <Link

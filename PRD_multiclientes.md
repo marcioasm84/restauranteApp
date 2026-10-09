@@ -12,6 +12,7 @@ Este documento estende o [PRD.md](./PRD.md) original. Ele **substitui** a exclus
 6. [Sugestões](#6-sugestões)
 7. [Roadmap](#7-roadmap)
 8. [Riscos](#8-riscos)
+9. [Fase 8 — Gestão Avançada do Estabelecimento](#9-fase-8--gestão-avançada-do-estabelecimento)
 
 ---
 
@@ -85,11 +86,11 @@ Domínio próprio do cliente (ex.: `pedidos.barxyz.com.br` apontando via CNAME p
 
 ### O que isso muda em cada parte do sistema já existente
 
-**Infraestrutura (Fase 5 / `infra/`)**: hoje não há domínio próprio configurado (frontend e backend saem em `*.cloudfront.net`, ver `AWS_DEPLOYMENT.md` seção 11). Para suportar subdomínio por cliente, entra:
-- Um domínio próprio da plataforma registrado no Route 53 (ex. `meurestaurante.app`).
-- Certificado ACM **wildcard** (`*.meurestaurante.app`), não um certificado de domínio único.
-- Registro DNS wildcard apontando para o CloudFront do frontend.
-- O backend precisa resolver o tenant a partir do `Host` do request recebido (seja direto, seja repassado pelo CloudFront/ALB).
+**Infraestrutura (Fase 5 / `infra/`)**: resolvido — o desenho de implantação atual (ver `AWS_DEPLOYMENT.md`) já nasce com domínio próprio e certificado **wildcard** de fábrica, via Caddy (desafio DNS no Cloudflare), em vez de ser um passo opcional posterior. Isso inclui:
+- Um domínio próprio da plataforma, com a zona DNS hospedada no Cloudflare (ex. `meurestaurante.app`).
+- Certificado **wildcard** (`*.meurestaurante.app`) emitido e renovado automaticamente pelo Caddy — não um certificado de domínio único.
+- Registro DNS wildcard apontando pro IP estático da instância Lightsail.
+- O backend resolve o tenant a partir do `Host` do request recebido (repassado pelo Caddy sem alteração).
 
 **Frontend**: a marca (nome + logo, hoje fixos em `src/components/Logo.tsx`) passa a ser **carregada dinamicamente** a partir do tenant resolvido pelo subdomínio — a aplicação faz uma chamada inicial (`GET /api/tenant` ou equivalente) para descobrir "qual cliente é esse subdomínio" antes de renderizar o resto.
 
@@ -142,7 +143,7 @@ Duas famílias de opção, sem travar o documento numa escolha definitiva agora 
 
 Pontos que não foram pedidos explicitamente, mas que recomendo considerar:
 
-- **Planos/tiers**: ex. *Básico* (até N mesas, 1 conta de cada papel, sem domínio próprio) e *Profissional* (mais mesas, múltiplas contas de garçom, domínio próprio, suporte prioritário). Dá direção comercial clara e justifica a diferença de preço.
+- **Planos/tiers**: ex. *Básico* (até N mesas, 1 conta de cada papel, sem domínio próprio) e *Profissional* (mais mesas, múltiplas contas de garçom, domínio próprio, suporte prioritário). Dá direção comercial clara e justifica a diferença de preço. Hoje isso ainda é só uma trava de UI — contas individuais de garçom (ver seção 9.2) são o que torna esse limite tecnicamente real, não só estética.
 - **Carência antes de suspender por atraso** (ex. 5–7 dias em `past_due` antes de `suspended`) — evita suspender um cliente por uma falha pontual de cartão.
 - **LGPD**: a plataforma passa a guardar dados de clientes finais (telefone no programa de fidelidade, avaliações) de *múltiplos negócios diferentes* ao mesmo tempo. Vale deixar pronto desde já: uma política de privacidade própria da plataforma, e a possibilidade de um tenant exportar ou apagar os dados dos seus próprios clientes finais sob pedido.
 - **Migração do tenant atual**: o "Diferente D+" de hoje já está em produção com dados reais (cardápio, e potencialmente pedidos/contas). Ele precisa virar o **primeiro tenant cadastrado** no novo modelo — é preciso um script de migração que crie esse tenant e preencha `tenant_id` em todas as linhas já existentes, não só meter a feature nova e deixar os dados antigos "órfãos".
@@ -154,15 +155,60 @@ Pontos que não foram pedidos explicitamente, mas que recomendo considerar:
 
 Numeração em sequência com o `PRD.md` original (que vai até a Fase 5):
 
-**Fase 6 — Multi-tenancy**
-Entidade `Tenant`, `tenant_id` em todas as tabelas operacionais, login de equipe por tenant, resolução por subdomínio (frontend + backend + WebSocket/Redis escopados por tenant), área de Super Admin para cadastrar cliente e logo, migração do tenant atual para o novo modelo. Pré-requisito: Fases 4 e 5 (containerização e infraestrutura AWS) já implementadas.
+**Fase 6 — Multi-tenancy** ✅ Implementada (local/Docker) — falta o domínio wildcard em produção
+Entidade `Tenant`, `tenant_id` em todas as tabelas operacionais, login de equipe por tenant (com senha com hash, substituindo as variáveis de ambiente globais), resolução por subdomínio (frontend + backend + WebSocket/Redis escopados por tenant — Redis agora usa um canal por tenant via `psubscribe`), área de Super Admin (`/super-admin`) para cadastrar cliente e logo, migração do "Diferente D+" para o novo modelo. Testado de ponta a ponta com um segundo cliente de exemplo, confirmando isolamento total (cardápio, pedidos e broadcast em tempo real de um cliente nunca aparecem no outro). Pré-requisito: Fases 4 e 5 já implementadas.
+
+Ainda falta para produção: comprar o domínio da plataforma e configurar o certificado/DNS wildcard na infraestrutura AWS (`infra/`) — hoje a Fase 5 só provisiona um domínio único, não `*.meurestaurante.app`. Local/Docker já funciona via `*.localhost`, sem precisar de domínio nenhum.
 
 **Fase 7 — SaaS (Cobrança e Liberação de Acesso)**
 Campos de plano/status no `Tenant`, integração com gateway de pagamento recorrente (ver seção 5.2), webhook de confirmação/falha de pagamento, middleware de bloqueio por status, período de carência. Pré-requisito: Fase 6 completa e validada com pelo menos um cliente real além do "Diferente D+".
+
+**Fase 8 — Gestão Avançada do Estabelecimento**
+Relatórios de vendas com filtro de período (hoje/7d/30d/mês/personalizado), gráfico de faturamento ao longo do tempo, comparação com o período anterior, quebra por categoria de prato e por forma de pagamento, exportação CSV; contas individuais de garçom/cozinha substituindo as 3 contas fixas de hoje, com nome próprio, atribuição de autoria em pedidos/contas e relatório de vendas por garçom (ver seção 9). É melhoria de produto, não de infraestrutura de cobrança — pode ser priorizada em paralelo à Fase 7, sem depender dela.
 
 ## 8. Riscos
 
 - **Vazamento de dado entre tenants** é o risco técnico central desta mudança — qualquer query no backend que esqueça o filtro `tenant_id` expõe dado de um cliente para outro. Mitigação recomendada: usar uma [Prisma Client Extension](https://www.prisma.io/docs/orm/prisma-client/client-extensions) (ou middleware equivalente) que injeta o filtro `tenant_id` automaticamente em toda query das tabelas multi-tenant, em vez de confiar que cada desenvolvedor vai lembrar de adicionar `where: { tenantId }` manualmente em cada chamada.
 - **WebSocket/Redis sem segmentação por tenant** é o mesmo risco, só que em tempo real: se o canal de broadcast não for separado por tenant (seção 3), um pedido de um cliente pode aparecer na tela de outro.
-- **Custo de infraestrutura por certificado/domínio wildcard**: pequeno, mas é uma peça nova na Fase 5 que precisa ser orçada (ver `AWS_DEPLOYMENT.md`).
+- **Instância única sem alta disponibilidade**: o desenho de baixo custo da Fase 5 (ver `AWS_DEPLOYMENT.md`) roda tudo numa única máquina — uma falha dela é downtime até restauração manual (snapshot diário mitiga perda de dado, não o tempo de recuperação). Aceitável para até ~10 clientes; o caminho pra alta disponibilidade real está documentado na seção 16 desse guia.
 - **Gateway de pagamento mal integrado** pode suspender cliente pagante por erro de webhook — por isso o período de carência (seção 6) e logs claros de cada mudança de status são importantes desde o começo da Fase 7.
+
+## 9. Fase 8 — Gestão Avançada do Estabelecimento
+
+As Fases 6 e 7 resolvem a plataforma (multi-tenant, cobrança). Esta fase resolve o produto: dar ao dono de cada estabelecimento ferramentas de gestão de verdade, não só o fluxo de pedido em si. É melhoria que todo cliente sente diretamente — diferente das Fases 4/5 (infraestrutura), que já foram tratadas como paralelizáveis à Fase 3 no PRD original, esta fase pode ser priorizada em paralelo à Fase 7 (SaaS), sem depender dela.
+
+### 9.1 Relatórios de Vendas com Histórico
+
+**Hoje**: `getAnalyticsSummary` (`server/src/analytics.ts`) só calcula métricas de **hoje** (faturamento, contas fechadas, ticket médio), misturadas com métricas **all-time** (prato mais pedido, avaliação média) — sem parâmetro de período. `src/pages/admin/AdminAnalytics.tsx` reflete isso: a própria página diz "Visão geral do desempenho do dia", sem seletor de data, sem gráfico, sem exportação.
+
+Proposto:
+- **Seletor de período** no painel admin: hoje / 7 dias / 30 dias / mês atual / intervalo personalizado.
+- `GET /api/analytics` passa a aceitar `from`/`to`, filtrando por `Bill.createdAt` dentro do tenant já resolvido — a base (tenant-scoping) já existe, só falta o filtro de data.
+- **Gráfico de faturamento por dia** ao longo do período selecionado. O projeto não usa nenhuma biblioteca de gráficos hoje; algo leve como Recharts resolveria sem pesar muito o bundle — decisão técnica a confirmar na implementação, não travada aqui.
+- **Comparação com o período anterior equivalente** (ex.: "+12% vs. semana passada").
+- **Quebra por categoria de prato**, não só por item individual — `MenuItem.category` já existe, só falta agrupar por ela no relatório.
+- **Fechamento de caixa por forma de pagamento** (Pix / cartão / carteira) — o dado já existe em `Bill.paymentMethod`, só falta esse corte no relatório.
+- **Exportação em CSV** do período selecionado (vendas por dia, por prato, por forma de pagamento) — útil para levar à contabilidade.
+
+### 9.2 Equipe com Contas Individuais (múltiplos garçons)
+
+**Hoje**: existe só **uma conta de garçom por cliente** — `TenantUser.username` é sempre literalmente a string do papel (`"garcom"`, `"admin"`, `"cozinha"`; ver `server/src/tenantStore.ts`), criada uma única vez no cadastro do tenant. O schema (`@@unique([tenantId, username])` em `server/prisma/schema.prisma`) não impede múltiplas contas do mesmo papel, mas nenhum código hoje cria uma segunda. O JWT (`server/src/auth.ts`) carrega só `{ role, tenantId }` — nunca o nome de uma pessoa. `Order`, `StatusEvent` e `Bill` não têm nenhum campo de autoria: toda ação (lançar pedido, marcar pronto, fechar conta) é anônima por papel, nunca por indivíduo.
+
+Proposto:
+- `TenantUser` ganha um campo **`displayName`** (nome da pessoa, ex. "Rafaela"), além de `username`/senha/`role` que já existem.
+- Tela **"Equipe"** no admin do próprio tenant (ex. `/admin/equipe`) para criar, renomear, trocar senha e desativar contas de garçom e cozinha — deixa de ficar restrito às 3 contas fixas criadas no cadastro.
+- O **login (JWT) passa a carregar o nome** de quem está logado, não só o papel.
+- `Order`, `StatusEvent` e `Bill` ganham um **campo opcional de autoria** (qual garçom lançou o pedido, qual fechou a conta) — pré-requisito direto do relatório de vendas por garçom abaixo.
+- **Relatório de vendas por garçom** (quem vendeu quanto, quantas contas fechou, ticket médio por garçom) — conecta direto com a seção 9.1.
+- Isso é o gancho técnico real para o limite de plano que a seção 6 já sugeria ("Profissional: múltiplas contas de garçom") — hoje essa diferenciação não existe de fato no sistema.
+
+### 9.3 Outras sugestões de valor
+
+Pontos que não foram pedidos explicitamente, mas que recomendo considerar junto com o resto desta fase:
+
+- **Pausar item do cardápio temporariamente** ("esgotado hoje") sem precisar apagar e recriar o prato — hoje esse estado não existe, o item só existe ou não.
+- **Alerta automático** (e-mail/WhatsApp) para o admin quando o faturamento do dia ficar abaixo de uma meta configurável.
+- **Relatório de horário de pico** (pedidos por hora do dia / dia da semana) — ajuda a planejar escala de equipe.
+- **Indicador de giro de mesa** (tempo médio que uma mesa fica ocupada) — já dá para calcular a partir do histórico de status de `RestaurantTable` e timestamps de pedido, mas não é exibido hoje.
+- **Exportação em PDF**, além do CSV — mais prático para levar a um contador que não mexe em planilha.
+- **Metas de venda mensais** por estabelecimento, com acompanhamento visual de progresso no painel admin.

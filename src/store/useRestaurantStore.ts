@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { socket } from '../lib/socket'
+import { getToken } from '../lib/auth'
 import { INITIAL_TABLES } from '../data/tables'
 import type { CartLine, Order, OrderStatus } from '../types'
 import type { RestaurantTable } from '../types'
@@ -32,7 +33,8 @@ export const useRestaurantStore = create<RestaurantStoreState>((set) => {
     orders: [],
     connected: false,
 
-    placeOrder: (tableId, lines) => socket.send({ type: 'placeOrder', tableId, lines }),
+    placeOrder: (tableId, lines) =>
+      socket.send({ type: 'placeOrder', tableId, lines, token: getToken() ?? undefined }),
     setOrderStatus: (orderId, status) => socket.send({ type: 'setOrderStatus', orderId, status }),
     callWaiter: (tableId) => socket.send({ type: 'callWaiter', tableId }),
     acknowledgeCall: (tableId) => socket.send({ type: 'acknowledgeCall', tableId }),

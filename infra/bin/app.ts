@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register'
 import * as cdk from 'aws-cdk-lib'
-import { NetworkStack } from '../lib/network-stack'
-import { DataStack } from '../lib/data-stack'
-import { BackendStack } from '../lib/backend-stack'
-import { FrontendStack } from '../lib/frontend-stack'
-import { CiCdStack } from '../lib/cicd-stack'
+import { PlatformStack } from '../lib/platform-stack'
 
 const app = new cdk.App()
 
@@ -17,28 +13,10 @@ const env = {
   region: (app.node.tryGetContext('awsRegion') as string) ?? process.env.CDK_DEFAULT_REGION ?? 'sa-east-1',
 }
 
-// "owner/repo" on GitHub — used only to scope the OIDC trust policy so
-// that *only* workflow runs from this repo can assume the deploy role.
-const githubRepo = (app.node.tryGetContext('githubRepo') as string) ?? 'marcioasm84/restauranteApp'
+const repoUrl =
+  (app.node.tryGetContext('repoUrl') as string) ?? 'https://github.com/marcioasm84/restauranteApp.git'
+const blueprintId = app.node.tryGetContext('blueprintId') as string | undefined
+const bundleId = app.node.tryGetContext('bundleId') as string | undefined
+const sshAllowedCidr = app.node.tryGetContext('sshAllowedCidr') as string | undefined
 
-const network = new NetworkStack(app, 'DiferenteDmais-Network', { env })
-
-const data = new DataStack(app, 'DiferenteDmais-Data', { env, vpc: network.vpc })
-data.addDependency(network)
-
-const backend = new BackendStack(app, 'DiferenteDmais-Backend', { env, vpc: network.vpc, data })
-backend.addDependency(data)
-
-const frontend = new FrontendStack(app, 'DiferenteDmais-Frontend', { env })
-
-const cicd = new CiCdStack(app, 'DiferenteDmais-CiCd', {
-  env,
-  githubRepo,
-  repository: backend.repository,
-  cluster: backend.service.cluster,
-  service: backend.service,
-  siteBucket: frontend.bucket,
-  distribution: frontend.distribution,
-})
-cicd.addDependency(backend)
-cicd.addDependency(frontend)
+new PlatformStack(app, 'MeuRestaurante-Platform', { env, repoUrl, blueprintId, bundleId, sshAllowedCidr })

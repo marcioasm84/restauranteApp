@@ -22,8 +22,8 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     try {
-      const { token, role } = await loginRequest(username, password)
-      setToken(token, role)
+      const { token, role, displayName } = await loginRequest(username, password)
+      setToken(token, role, displayName)
       navigate(homeRouteForRole(role), { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível entrar.')
@@ -99,23 +99,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-4 rounded-xl border border-border bg-surface px-4 py-3 text-[11.5px] text-ink-soft">
-          <p className="mb-1.5 font-semibold uppercase tracking-wide text-ink-soft">
-            Acessos de demonstração
-          </p>
-          <p>
-            Administrador: <span className="font-mono">admin</span> /{' '}
-            <span className="font-mono">mesaviva123</span>
-          </p>
-          <p>
-            Garçom: <span className="font-mono">garcom</span> /{' '}
-            <span className="font-mono">garcom123</span>
-          </p>
-          <p>
-            Cozinha: <span className="font-mono">cozinha</span> /{' '}
-            <span className="font-mono">cozinha123</span>
-          </p>
-        </div>
+        <p className="mt-4 text-center text-[11.5px] text-ink-soft">
+          Esqueceu a senha da equipe? Fale com o administrador do restaurante.
+        </p>
       </div>
     </div>
   )

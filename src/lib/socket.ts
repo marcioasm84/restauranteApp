@@ -11,7 +11,7 @@ import type {
 type MenuItemInput = Omit<MenuItem, 'id'>
 
 export type ClientMessage =
-  | { type: 'placeOrder'; tableId: string; lines: CartLine[] }
+  | { type: 'placeOrder'; tableId: string; lines: CartLine[]; token?: string }
   | { type: 'setOrderStatus'; orderId: string; status: OrderStatus }
   | { type: 'callWaiter'; tableId: string }
   | { type: 'acknowledgeCall'; tableId: string }
@@ -27,6 +27,7 @@ export type ClientMessage =
       splitCount: number
       customerPhone?: string
       redeemPoints?: boolean
+      token?: string
     }
   | { type: 'submitReview'; billId: string; rating: number; comment: string }
   | { type: 'lookupLoyalty'; phone: string }

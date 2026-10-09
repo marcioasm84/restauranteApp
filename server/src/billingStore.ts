@@ -16,6 +16,8 @@ function toBill(row: {
   pointsRedeemed: number
   prepMinutesSamples: number[]
   createdAt: Date
+  staffId: string | null
+  staffName: string | null
   lines: { name: string; quantity: number; unitPrice: number }[]
 }): Bill {
   return {
@@ -34,20 +36,26 @@ function toBill(row: {
     pointsRedeemed: row.pointsRedeemed,
     prepMinutesSamples: row.prepMinutesSamples,
     createdAt: row.createdAt.getTime(),
+    staffId: row.staffId ?? undefined,
+    staffName: row.staffName ?? undefined,
   }
 }
 
-export async function createBill(input: {
-  tableId: string
-  tableNumber: number
-  orders: Order[]
-  paymentMethod: PaymentMethod
-  splitCount: number
-  customerPhone?: string
-  loyaltyDiscount: number
-  pointsEarned: number
-  pointsRedeemed: number
-}): Promise<Bill> {
+export async function createBill(
+  tenantId: string,
+  input: {
+    tableId: string
+    tableNumber: number
+    orders: Order[]
+    paymentMethod: PaymentMethod
+    splitCount: number
+    customerPhone?: string
+    loyaltyDiscount: number
+    pointsEarned: number
+    pointsRedeemed: number
+    staff?: { id: string; name: string }
+  },
+): Promise<Bill> {
   const lines: BillLine[] = input.orders.flatMap((o) =>
     o.lines.map((l) => ({ name: l.name, quantity: l.quantity, unitPrice: l.unitPrice })),
   )
@@ -65,6 +73,7 @@ export async function createBill(input: {
   const row = await prisma.bill.create({
     data: {
       id: `NF-${Date.now().toString(36).toUpperCase()}`,
+      tenantId,
       tableId: input.tableId,
       tableNumber: input.tableNumber,
       subtotal,
@@ -77,6 +86,8 @@ export async function createBill(input: {
       pointsEarned: input.pointsEarned,
       pointsRedeemed: input.pointsRedeemed,
       prepMinutesSamples,
+      staffId: input.staff?.id,
+      staffName: input.staff?.name,
       lines: { create: lines },
     },
     include: { lines: true },
@@ -85,12 +96,29 @@ export async function createBill(input: {
   return toBill(row)
 }
 
-export async function getBill(id: string): Promise<Bill | undefined> {
-  const row = await prisma.bill.findUnique({ where: { id }, include: { lines: true } })
+export async function getBill(tenantId: string, id: string): Promise<Bill | undefined> {
+  const row = await prisma.bill.findFirst({ where: { id, tenantId }, include: { lines: true } })
   return row ? toBill(row) : undefined
 }
 
-export async function getAllBills(): Promise<Bill[]> {
-  const rows = await prisma.bill.findMany({ include: { lines: true }, orderBy: { createdAt: 'asc' } })
+export async function getAllBills(tenantId: string): Promise<Bill[]> {
+  const rows = await prisma.bill.findMany({
+    where: { tenantId },
+    include: { lines: true },
+    orderBy: { createdAt: 'asc' },
+  })
+  return rows.map(toBill)
+}
+
+// Powers the Fase 8 reports (period filter, daily series, comparisons) —
+// filters at the database level instead of fetching everything and
+// filtering in JS, since that stops scaling once a tenant has a real
+// history of bills.
+export async function getBillsInRange(tenantId: string, from: number, to: number): Promise<Bill[]> {
+  const rows = await prisma.bill.findMany({
+    where: { tenantId, createdAt: { gte: new Date(from), lt: new Date(to) } },
+    include: { lines: true },
+    orderBy: { createdAt: 'asc' },
+  })
   return rows.map(toBill)
 }

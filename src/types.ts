@@ -46,6 +46,8 @@ export interface Order {
   status: OrderStatus
   createdAt: number
   statusHistory: StatusEvent[]
+  staffId?: string
+  staffName?: string
 }
 
 export type TableStatus = 'livre' | 'ocupada' | 'aguardando_pedido' | 'aguardando_conta'
@@ -82,14 +84,70 @@ export interface Bill {
   pointsRedeemed: number
   prepMinutesSamples: number[]
   createdAt: number
+  staffId?: string
+  staffName?: string
+}
+
+export interface TenantBranding {
+  name: string
+  slug: string
+  logoUrl: string | null
+  primaryColor: string | null
+  accentColor: string | null
+}
+
+// What the "choose a restaurant" directory shows when no tenant resolves
+// from the current host — deliberately a small subset of TenantSummary,
+// since this endpoint has no auth and is reachable by anyone.
+export interface PublicTenant {
+  name: string
+  slug: string
+  logoUrl: string | null
+  address: string | null
+}
+
+export interface TenantSummary {
+  id: string
+  name: string
+  slug: string
+  logoUrl: string | null
+  primaryColor: string | null
+  accentColor: string | null
+  responsibleName: string | null
+  phone: string | null
+  email: string | null
+  address: string | null
+  latitude: number | null
+  longitude: number | null
+  notes: string | null
+  status: 'trial' | 'active' | 'past_due' | 'suspended'
+  plan: string
+  createdAt: number
+  tableCount: number
+  menuItemCount: number
+  orderCount: number
 }
 
 export interface AnalyticsSummary {
-  todayRevenue: number
-  todayBills: number
+  periodRevenue: number
+  periodBills: number
   averageTicket: number
+  revenueChangePct: number | null
   averagePrepMinutes: number | null
   averageRating: number | null
   reviewCount: number
   topDishes: { name: string; quantity: number; revenue: number }[]
+  dailyRevenue: { date: string; revenue: number; bills: number }[]
+  byCategory: { category: string; quantity: number; revenue: number }[]
+  byPaymentMethod: { method: PaymentMethod; count: number; revenue: number }[]
+  byStaff: { staffId: string | null; staffName: string; bills: number; revenue: number }[]
+}
+
+export interface StaffMember {
+  id: string
+  username: string
+  displayName: string
+  role: Role
+  active: boolean
+  createdAt: number
 }

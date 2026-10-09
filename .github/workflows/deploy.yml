@@ -1,100 +1,24 @@
 name: Deploy
 
-# Deploys the APPLICATION only (new backend image + new frontend build) to
-# infrastructure that already exists. Provisioning or changing that
-# infrastructure (infra/) is a manual `cdk deploy` from your own machine —
-# see AWS_DEPLOYMENT.md for why. Adjust the branch below to whichever one
-# you treat as production.
+# Publica a aplicação na instância que já existe (provisionada manualmente
+# via `cdk deploy` em infra/ — ver AWS_DEPLOYMENT.md). Opcional: sem este
+# workflow, o mesmo resultado sai rodando `infra/scripts/deploy.sh` via SSH
+# manualmente. Ajuste a branch abaixo para a que você trata como produção.
 on:
   push:
     branches: [main]
   workflow_dispatch: {}
 
-permissions:
-  id-token: write # required to mint the OIDC token for AssumeRoleWithWebIdentity
-  contents: read
-
-env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
-
 jobs:
-  deploy-backend:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Log in to ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push backend image
-        id: build
-        env:
-          REPO: ${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_REPOSITORY }}
-        run: |
-          docker build -t "$REPO:${{ github.sha }}" -t "$REPO:latest" ./server
-          docker push "$REPO:${{ github.sha }}"
-          docker push "$REPO:latest"
-          echo "image=$REPO:${{ github.sha }}" >> "$GITHUB_OUTPUT"
-
-      - name: Download current task definition
-        run: |
-          aws ecs describe-task-definition \
-            --task-definition ${{ vars.ECS_TASK_FAMILY }} \
-            --query taskDefinition > task-definition.json
-
-      - name: Render new image into task definition
-        id: render
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: backend
-          image: ${{ steps.build.outputs.image }}
-
-      - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render.outputs.task-definition }}
-          service: ${{ vars.ECS_SERVICE_NAME }}
-          cluster: ${{ vars.ECS_CLUSTER_NAME }}
-          wait-for-service-stability: true
-
-  deploy-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - run: npm ci
-
-      - name: Build frontend
-        env:
-          # Both point at the backend ALB (or your custom domain, once set
-          # up — see AWS_DEPLOYMENT.md section 11).
-          VITE_API_URL: ${{ vars.BACKEND_URL }}
-          VITE_WS_URL: ${{ vars.BACKEND_WS_URL }}
-        run: npm run build
-
-      - name: Sync to S3
-        run: aws s3 sync dist/ "s3://${{ vars.FRONTEND_BUCKET }}" --delete
-
-      - name: Invalidate CloudFront cache
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
-            --paths "/*"
+          host: ${{ vars.INSTANCE_HOST }}
+          # Usuário padrão do blueprint Amazon Linux 2023 no Lightsail —
+          # confirme no console (aba "Connect") no primeiro acesso.
+          username: ec2-user
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: bash /opt/app/infra/scripts/deploy.sh

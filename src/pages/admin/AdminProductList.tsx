@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BarChart3, LogOut, Pencil, Plus, Trash2 } from 'lucide-react'
+import { BarChart3, LogOut, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import Logo from '../../components/Logo'
 import DishImage from '../../components/DishImage'
 import { useMenuStore } from '../../store/useMenuStore'
@@ -47,6 +47,12 @@ export default function AdminProductList() {
             className="flex min-h-11 items-center gap-1.5 rounded-full border border-border px-4 text-[13px] font-semibold text-ink-soft hover:text-ink"
           >
             <BarChart3 size={15} /> Relatórios
+          </Link>
+          <Link
+            to="/admin/equipe"
+            className="flex min-h-11 items-center gap-1.5 rounded-full border border-border px-4 text-[13px] font-semibold text-ink-soft hover:text-ink"
+          >
+            <Users size={15} /> Equipe
           </Link>
           <Link
             to="/admin/novo"

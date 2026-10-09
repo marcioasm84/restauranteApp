@@ -168,7 +168,7 @@ Recomendações personalizadas (IA), harmonização/combos, multi-idioma, fila d
 Docker (backend + frontend), `docker-compose` com PostgreSQL e Redis, migração da persistência de arquivos JSON para banco de dados real. Ver seção 12.
 
 **Fase 5 — Implantação em Produção (AWS)** ✅ Infraestrutura como código pronta — falta rodar o deploy
-ECS Fargate, RDS for PostgreSQL, ElastiCache for Redis, S3 + CloudFront, CI/CD via GitHub Actions, infraestrutura como código via AWS CDK (`infra/`). A implantação em si (criar os recursos reais na AWS) é um passo manual, deliberadamente fora do que a automação faz sozinha — ver [AWS_DEPLOYMENT.md](./AWS_DEPLOYMENT.md) para o passo a passo completo, incluindo custo estimado e credenciais geradas.
+Uma única instância Lightsail rodando o mesmo `docker-compose.yml` do ambiente local (Postgres, Redis, backend, frontend) mais Caddy para HTTPS automático (inclusive certificado wildcard, essencial pro modelo multi-tenant de subdomínio — ver [PRD_multiclientes.md](./PRD_multiclientes.md)), infraestrutura como código via AWS CDK (`infra/`). Desenho pensado para baixo custo a até ~10 clientes — ver seção 12.4 para o porquê de cada serviço escolhido. A implantação em si (criar os recursos reais na AWS) é um passo manual, deliberadamente fora do que a automação faz sozinha — ver [AWS_DEPLOYMENT.md](./AWS_DEPLOYMENT.md) para o passo a passo completo, incluindo custo estimado.
 
 > As fases 4 e 5 são de infraestrutura, não de produto — não dependem da Fase 3 e podem ser priorizadas em paralelo ou antes dela.
 
@@ -223,29 +223,28 @@ O protótipo atual (Fases 1 e 2) roda em modo demonstração: backend Node/Expre
 
 **Objetivo:** hospedar a aplicação em produção na AWS, com serviços gerenciados equivalentes a cada peça da stack.
 
-**Status:** infraestrutura como código implementada em `infra/` (AWS CDK) e pipeline em `.github/workflows/deploy.yml`. Passo a passo completo de implantação, estimativa de custo e credenciais geradas em [AWS_DEPLOYMENT.md](./AWS_DEPLOYMENT.md). Dois ajustes em relação à tabela original: RDS fica Single-AZ (não Multi-AZ) e sem Aurora por enquanto — adequado ao volume de um único restaurante, upgrade possível sem mudar a aplicação; DNS + ACM (linha abaixo) ficou opcional — por padrão tanto o frontend quanto o backend já saem com HTTPS válido via domínios `*.cloudfront.net`, sem precisar comprar domínio algum.
+**Status:** infraestrutura como código implementada em `infra/` (AWS CDK), um único stack (`infra/lib/platform-stack.ts`). Passo a passo completo de implantação e estimativa de custo em [AWS_DEPLOYMENT.md](./AWS_DEPLOYMENT.md) — redesenhado para priorizar o menor custo possível a um volume de até ~10 clientes pequenos (hoje: 3 reais), em vez de redundância/automação que esse tamanho ainda não precisa.
 
-| Componente | Serviço AWS | Por quê |
+| Componente | Serviço | Por quê |
 |---|---|---|
-| Frontend (build estático) | S3 + CloudFront | Hospedagem barata e CDN global para a SPA |
-| Backend (API + WebSocket) | ECS Fargate + Application Load Balancer | Containers gerenciados sem administrar servidor/cluster; ALB suporta WebSocket |
-| Banco de dados | RDS for PostgreSQL (Aurora PostgreSQL se precisar escalar) | Gerenciado, backups automáticos, Multi-AZ |
-| Cache / Pub-Sub | ElastiCache for Redis | Fan-out do WebSocket entre as tasks do ECS |
-| Imagens do cardápio | S3 (upload) + CloudFront | Evolui do campo "URL da imagem" atual para upload de verdade |
-| Registro de containers | Amazon ECR | Guarda as imagens Docker geradas no CI/CD |
-| Segredos e configuração | AWS Secrets Manager / SSM Parameter Store | Credenciais do banco, JWT secret, senha do admin — nunca em `.env` versionado |
-| DNS + TLS | Route 53 + ACM | Domínio próprio e HTTPS |
-| Observabilidade | CloudWatch (logs, métricas, alarmes) | Monitorar erros e disponibilidade |
-| Infraestrutura como código | AWS CDK (TypeScript) | Mesma linguagem do projeto, infra versionada junto com o código |
-| CI/CD | GitHub Actions → build da imagem → push no ECR → deploy no ECS | Pipeline automático a cada merge |
+| Frontend + Backend (API + WebSocket) | 1x instância Lightsail (~2 vCPU/2GB/60GB), rodando o mesmo `docker-compose.yml` do ambiente local | Uma única máquina aguenta tranquilamente até ~10 restaurantes pequenos — containers gerenciados (ECS/ALB) só compensam quando o tráfego exige escalar sozinho; o pacote fechado do Lightsail (computação+disco+IP+tráfego) evita a cobrança de IPv4 avulsa que uma EC2 equivalente tem hoje |
+| Banco de dados | Postgres em container na mesma instância + backup diário pro S3 | Maior economia do desenho; RDS fica como upgrade de uma variável de ambiente se preferir trocar custo por tranquilidade operacional |
+| Cache / Pub-Sub | Redis em container na mesma instância | `server/src/redis.ts` só precisa sincronizar WebSocket entre instâncias do backend — com uma instância só, roda de graça, sem ElastiCache |
+| TLS (inclusive wildcard) | Caddy (container), desafio DNS via Cloudflare | Emite e renova HTTPS sozinho, incluindo o certificado wildcard que o modelo multi-tenant (`<slug>.domínio`) exige — sem ALB/CloudFront/ACM, e sem precisar de IAM Instance Role (que o Lightsail não tem) |
+| Imagens do cardápio | Upload direto pro backend, servido pela própria instância | Já implementado (ver Fase 6/Super Admin) — sem S3/CloudFront dedicados, desnecessário nesse volume |
+| Segredos e configuração | `.env` na própria instância, nunca no git | Sem IAM Instance Role, não há como a instância ler um cofre gerenciado (tipo SSM) sozinha sem alguma credencial fixa — mais simples manter os segredos só localmente |
+| DNS | Cloudflare (zona + registro wildcard, gratuito) | Domínio próprio e o subdomínio de cada cliente |
+| Backup de desastre | Snapshot automático nativo do Lightsail | Recupera a instância inteira, não só o banco |
+| Infraestrutura como código | AWS CDK (TypeScript, construtos L1 de Lightsail) | Mesma linguagem do projeto, infra versionada junto com o código |
+| CI/CD | GitHub Actions via SSH (opcional) | Roda o mesmo `git pull && docker compose up --build -d` do deploy manual |
 
-**Por que ECS Fargate em vez de Kubernetes (EKS):** para uma aplicação de um único restaurante (sem modelo multi-tenant — ver seção 11), ECS Fargate entrega o mesmo benefício de containers gerenciados com bem menos complexidade operacional que administrar um cluster Kubernetes. EKS fica como alternativa válida apenas se o produto evoluir para atender múltiplos restaurantes/clientes no futuro, ou se a equipe já tiver ferramental Kubernetes consolidado em outros projetos.
+**Por que uma única instância Lightsail em vez de ECS Fargate ou Kubernetes:** para até ~10 clientes pequenos, o benefício de containers gerenciados (ECS) ou orquestração completa (EKS) não compensa a complexidade/custo extra — uma máquina já aguenta a carga, e o mesmo `docker-compose.yml` do ambiente local funciona sem mudança nenhuma. ECS Fargate fica registrado como o próximo passo natural (seção 16 do `AWS_DEPLOYMENT.md`) quando o volume de clientes ou a exigência de alta disponibilidade justificar o custo extra; EKS só entraria em cena numa escala muito maior que o modelo de negócio (restaurantes/bares individuais) prevê.
 
 ### 12.5 Segurança
 
 - Autenticação por **perfil** (admin, garçom, cozinha), migrada de token em memória para JWT assinado — ver seção 13 para os acessos de cada perfil.
-- HTTPS obrigatório de ponta a ponta (ACM no CloudFront/ALB).
-- Segredos (credenciais de banco, JWT secret, senhas de cada perfil) fora do código-fonte, geridos pelo Secrets Manager/SSM.
+- HTTPS obrigatório de ponta a ponta (Caddy, certificado wildcard renovado automaticamente via Cloudflare).
+- Segredos (credenciais de banco, JWT secret, senhas de cada perfil) fora do código-fonte, num `.env` só na instância; a única credencial AWS que existe na infraestrutura é um usuário IAM com permissão apenas para gravar no bucket de backup.
 
 ---
 

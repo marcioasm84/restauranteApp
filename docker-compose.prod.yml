@@ -1,0 +1,55 @@
+# Override de produção — soma ao docker-compose.yml de sempre, não substitui
+# nada nele (postgres/redis/backend/frontend continuam exatamente iguais ao
+# ambiente local). Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# O que isso adiciona: o Caddy na frente de tudo, terminando HTTPS (inclusive
+# o certificado wildcard de *.{$DOMAIN}, um por cliente) e encaminhando pro
+# container `frontend` já existente — que continua fazendo o proxy interno
+# de /api e /ws pro `backend`, sem mudar nada aí.
+#
+# Segurança: como este arquivo nunca inclui o docker-compose.override.yml
+# (só carregado automaticamente quando NENHUM -f é passado — ver esse
+# arquivo), nenhuma porta do postgres/redis/backend/frontend é publicada no
+# host em produção. Só o Caddy publica 80/443 — é a única porta que o
+# firewall da instância também libera (ver infra/lib/platform-stack.ts).
+#
+# Limites de memória: pensados pra uma instância de 2GB — não protegem o
+# pico de memória do `docker compose up --build` em si (isso roda fora de
+# qualquer container, no processo de build do host), só evitam que um
+# container individual vaze memória sem limite depois de no ar. Ver
+# AWS_DEPLOYMENT.md pra raciocínio completo e a opção de swap/4GB.
+services:
+  postgres:
+    mem_limit: 384m
+
+  redis:
+    mem_limit: 64m
+
+  backend:
+    mem_limit: 512m
+
+  frontend:
+    mem_limit: 32m
+
+  caddy:
+    build:
+      context: ./infra/caddy
+    restart: unless-stopped
+    mem_limit: 128m
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+      CF_API_TOKEN: ${CF_API_TOKEN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -26,6 +26,9 @@ export interface Order {
   status: OrderStatus
   createdAt: number
   statusHistory: StatusEvent[]
+  /** Which staff member placed it — undefined for orders customers place themselves. */
+  staffId?: string
+  staffName?: string
 }
 
 export type TableStatus = 'livre' | 'ocupada' | 'aguardando_pedido' | 'aguardando_conta'
@@ -88,6 +91,9 @@ export interface Bill {
   /** Minutes between "recebido" and "pronto" for each order in this bill (prep time samples for analytics). */
   prepMinutesSamples: number[]
   createdAt: number
+  /** Which staff member closed it — undefined if a customer closed their own table. */
+  staffId?: string
+  staffName?: string
 }
 
 export interface LoyaltyAccount {
@@ -107,18 +113,24 @@ export interface Review {
 }
 
 export interface AnalyticsSummary {
-  todayRevenue: number
-  todayBills: number
+  periodRevenue: number
+  periodBills: number
   averageTicket: number
+  /** % change vs. the equivalent prior period, or null if that period had no revenue to compare against. */
+  revenueChangePct: number | null
   averagePrepMinutes: number | null
   averageRating: number | null
   reviewCount: number
   topDishes: { name: string; quantity: number; revenue: number }[]
+  dailyRevenue: { date: string; revenue: number; bills: number }[]
+  byCategory: { category: string; quantity: number; revenue: number }[]
+  byPaymentMethod: { method: PaymentMethod; count: number; revenue: number }[]
+  byStaff: { staffId: string | null; staffName: string; bills: number; revenue: number }[]
 }
 
 // Messages the client can send to the server over the WebSocket connection.
 export type ClientMessage =
-  | { type: 'placeOrder'; tableId: string; lines: CartLine[] }
+  | { type: 'placeOrder'; tableId: string; lines: CartLine[]; token?: string }
   | { type: 'setOrderStatus'; orderId: string; status: OrderStatus }
   | { type: 'callWaiter'; tableId: string }
   | { type: 'acknowledgeCall'; tableId: string }
@@ -134,6 +146,7 @@ export type ClientMessage =
       splitCount: number
       customerPhone?: string
       redeemPoints?: boolean
+      token?: string
     }
   | { type: 'submitReview'; billId: string; rating: number; comment: string }
   | { type: 'lookupLoyalty'; phone: string }

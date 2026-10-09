@@ -19,14 +19,13 @@ function toReview(row: {
   }
 }
 
-export async function addReview(input: {
-  billId: string
-  tableNumber: number
-  rating: number
-  comment: string
-}): Promise<Review> {
+export async function addReview(
+  tenantId: string,
+  input: { billId: string; tableNumber: number; rating: number; comment: string },
+): Promise<Review> {
   const row = await prisma.review.create({
     data: {
+      tenantId,
       billId: input.billId,
       tableNumber: input.tableNumber,
       rating: Math.min(5, Math.max(1, Math.round(input.rating))),
@@ -36,7 +35,15 @@ export async function addReview(input: {
   return toReview(row)
 }
 
-export async function getAllReviews(): Promise<Review[]> {
-  const rows = await prisma.review.findMany({ orderBy: { createdAt: 'asc' } })
+export async function getAllReviews(tenantId: string): Promise<Review[]> {
+  const rows = await prisma.review.findMany({ where: { tenantId }, orderBy: { createdAt: 'asc' } })
+  return rows.map(toReview)
+}
+
+export async function getReviewsInRange(tenantId: string, from: number, to: number): Promise<Review[]> {
+  const rows = await prisma.review.findMany({
+    where: { tenantId, createdAt: { gte: new Date(from), lt: new Date(to) } },
+    orderBy: { createdAt: 'asc' },
+  })
   return rows.map(toReview)
 }

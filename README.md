@@ -1,6 +1,8 @@
-# Diferente D+
+# Meu Restaurante
 
-App de pedidos para restaurante — cardápio visual, pedido pelo garçom ou pelo cliente, comanda digital direto para a cozinha, pagamento com fidelidade, avaliações e um painel administrativo com relatórios. Ver [PRD.md](./PRD.md) para o documento de requisitos completo.
+Plataforma multi-cliente de pedidos para restaurante — cardápio visual, pedido pelo garçom ou pelo cliente, comanda digital direto para a cozinha, pagamento com fidelidade, avaliações e um painel administrativo com relatórios. Cada cliente (restaurante/bar) cadastrado na plataforma tem seu próprio cardápio, mesas, pedidos e equipe, totalmente isolados dos demais — ver [PRD_multiclientes.md](./PRD_multiclientes.md) para o modelo multi-tenant, [PRD.md](./PRD.md) para o produto em si, e [ARQUITETURA.md](./ARQUITETURA.md) para como a aplicação funciona e por que cada tecnologia foi escolhida.
+
+"Diferente D+" é o primeiro cliente real cadastrado na plataforma, usado como exemplo ao longo deste README.
 
 Cliente, garçom e cozinha podem rodar em dispositivos diferentes (tablet da mesa, celular do garçom, tablet da cozinha) na mesma rede Wi-Fi e ver os pedidos, o cardápio **e a conta** sincronizados em tempo real. Os dados (mesas, pedidos, cardápio, contas fechadas, fidelidade e avaliações) ficam em **PostgreSQL**, com **Redis** cuidando da distribuição em tempo real do WebSocket — a mesma arquitetura que sobe na nuvem (ver seção 12 do PRD), só que rodando localmente via Docker.
 
@@ -36,23 +38,47 @@ O frontend detecta o backend automaticamente pela URL (`window.location.hostname
 
 Se preferir instalar Postgres e Redis localmente: copie `server/.env.example` para `server/.env`, ajuste `DATABASE_URL`/`REDIS_URL`, rode `npm run install:server`, depois `npm run prisma:deploy --prefix server` para aplicar as migrations, e então `npm run dev` na raiz como antes.
 
-## Usando o app
+## Multi-cliente: como acessar cada restaurante
 
-Abra o frontend e escolha um dos perfis:
+Cada cliente cadastrado na plataforma tem seu próprio subdomínio — localmente, isso funciona sem nenhuma configuração extra de DNS graças a `*.localhost`, que todo navegador moderno já resolve para a própria máquina:
+
+```
+http://diferentedmais.localhost:8090   # cliente de exemplo já cadastrado
+http://<slug-do-cliente>.localhost:8090
+```
+
+Acessar só `http://localhost:8090` (sem subdomínio) mostra "restaurante não encontrado" — é o endereço da plataforma em si, não de um cliente.
+
+### Painel da plataforma (Super Admin)
+
+Cadastra novos clientes (nome, subdomínio, logo, senha inicial de cada papel) e permite suspender/reativar o acesso de qualquer um:
+
+```
+http://localhost:8090/super-admin
+usuário: superadmin
+senha:   superadmin123
+```
+
+Troque via `SUPER_ADMIN_USERNAME`/`SUPER_ADMIN_PASSWORD` no `.env` da raiz antes de subir o backend.
+
+## Usando o app (dentro de um cliente)
+
+Acesse pelo subdomínio do cliente (ex. `diferentedmais.localhost:8090`) e escolha um dos perfis:
 
 - **Cliente** (`/mesa/:id`) — cardápio com fotos, carrinho, customização de itens, acompanhamento do pedido com notificações in-app, fechamento de conta (Pix/cartão/carteira, com divisão e fidelidade) e avaliação pós-refeição.
 - **Garçom** (`/garcom`) — mapa de mesas, lançamento de pedidos e fechamento de conta (mesmo fluxo de pagamento do cliente).
 - **Cozinha** (`/cozinha`) — painel (KDS) para avançar o status dos pedidos.
 - **Administração** (`/login` → `/admin`) — cadastro/edição/remoção de produtos do cardápio e relatórios (`/admin/analytics`).
 
-### Login da administração
+### Login da equipe
+
+Cada cliente tem suas próprias contas de admin/garçom/cozinha, criadas pelo Super Admin no cadastro (não são mais variáveis de ambiente globais). O cliente de exemplo "Diferente D+" já vem com:
 
 ```
-usuário: admin
-senha:   mesaviva123
+admin:   admin   / mesaviva123
+garçom:  garcom  / garcom123
+cozinha: cozinha / cozinha123
 ```
-
-Para trocar, defina `ADMIN_USERNAME`/`ADMIN_PASSWORD` no `.env` da raiz (lido pelo `docker-compose.yml`) antes de subir o backend.
 
 ### Pagamento, fidelidade e avaliações
 

@@ -1,0 +1,17 @@
+# Termina HTTPS pra toda a plataforma, incluindo o subdomínio de cada
+# cliente (*.{$DOMAIN}) — certificado wildcard emitido e renovado sozinho
+# via desafio DNS no Cloudflare, com um token de API escopado só a edição
+# de DNS nessa zona (sem relação nenhuma com a conta AWS — ver
+# AWS_DEPLOYMENT.md pro motivo da troca do Route 53 pro Cloudflare: o
+# Lightsail não tem IAM Instance Role, então autenticar via Cloudflare evita
+# precisar de uma credencial AWS de escopo amplo rodando na instância).
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN}, *.{$DOMAIN} {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+	reverse_proxy frontend:80
+}

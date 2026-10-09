@@ -9,17 +9,22 @@ function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '')
 }
 
-export async function getAccount(phone: string): Promise<LoyaltyAccount> {
+export async function getAccount(tenantId: string, phone: string): Promise<LoyaltyAccount> {
   const key = normalizePhone(phone)
-  const row = await prisma.loyaltyAccount.findUnique({ where: { phone: key } })
+  const row = await prisma.loyaltyAccount.findUnique({
+    where: { tenantId_phone: { tenantId, phone: key } },
+  })
   return row ?? { phone: key, points: 0, totalSpent: 0, visits: 0 }
 }
 
 /**
  * Applies a redemption (if requested) then an accrual for a paid bill, in one
  * atomic step. Returns the discount actually applied and the updated account.
+ * Accounts are scoped per tenant — the same phone number at two different
+ * restaurants on the platform never shares points.
  */
 export async function settleBill(
+  tenantId: string,
   phone: string | undefined,
   subtotal: number,
   redeemPoints: boolean,
@@ -34,12 +39,9 @@ export async function settleBill(
   }
 
   const key = normalizePhone(phone)
-  const current = (await prisma.loyaltyAccount.findUnique({ where: { phone: key } })) ?? {
-    phone: key,
-    points: 0,
-    totalSpent: 0,
-    visits: 0,
-  }
+  const current = (await prisma.loyaltyAccount.findUnique({
+    where: { tenantId_phone: { tenantId, phone: key } },
+  })) ?? { phone: key, points: 0, totalSpent: 0, visits: 0 }
 
   const maxDiscount = current.points * REDEEM_VALUE
   const discount = redeemPoints ? Math.min(maxDiscount, subtotal) : 0
@@ -49,8 +51,9 @@ export async function settleBill(
   const pointsEarned = Math.floor(amountPaid * EARN_RATE)
 
   const updated = await prisma.loyaltyAccount.upsert({
-    where: { phone: key },
+    where: { tenantId_phone: { tenantId, phone: key } },
     create: {
+      tenantId,
       phone: key,
       points: pointsEarned - pointsRedeemed,
       totalSpent: amountPaid,

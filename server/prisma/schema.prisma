@@ -27,19 +27,91 @@ enum PaymentMethod {
   carteira
 }
 
+enum TenantStatus {
+  trial
+  active
+  past_due
+  suspended
+}
+
+enum StaffRole {
+  admin
+  garcom
+  cozinha
+}
+
+// One row per client (restaurant/bar) on the platform — see PRD_multiclientes.md.
+// Every operational table below belongs to exactly one tenant; nothing is
+// ever queried without filtering by tenantId (see server/src/tenant.ts).
+model Tenant {
+  id              String       @id @default(uuid())
+  name            String
+  slug            String       @unique
+  logoUrl         String?
+  primaryColor    String?
+  accentColor     String?
+  // Contact/business info — who to reach about this client and where the
+  // place actually is, independent of the login accounts below.
+  responsibleName String?
+  phone           String?
+  email           String?
+  address         String?
+  latitude        Float?
+  longitude       Float?
+  notes           String?
+  status          TenantStatus @default(trial)
+  plan         String       @default("basico")
+  createdAt    DateTime     @default(now())
+
+  staffUsers      TenantUser[]
+  tables          RestaurantTable[]
+  menuItems       MenuItem[]
+  orders          Order[]
+  bills           Bill[]
+  reviews         Review[]
+  loyaltyAccounts LoyaltyAccount[]
+
+  @@map("tenants")
+}
+
+// Staff login (admin/garçom/cozinha), scoped to one tenant — replaces the
+// old single global account per role that used to live in env vars.
+model TenantUser {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  username     String
+  passwordHash String
+  role         StaffRole
+  // Person's name, e.g. "Rafaela" — distinct from `username` (the login),
+  // so staff can be identified by name across the admin/reports UI. Nullable
+  // because it didn't exist before this field was added.
+  displayName  String?
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  @@unique([tenantId, username])
+  @@map("tenant_users")
+}
+
 model RestaurantTable {
-  id             String   @id
-  number         Int      @unique
+  id             String      @id
+  tenantId       String
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number         Int
   status         TableStatus @default(livre)
-  callingWaiter  Boolean  @default(false)
-  requestingBill Boolean  @default(false)
+  callingWaiter  Boolean     @default(false)
+  requestingBill Boolean     @default(false)
   orders         Order[]
 
+  @@unique([tenantId, number])
   @@map("restaurant_tables")
 }
 
 model MenuItem {
   id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   description String
   price       Float
@@ -54,13 +126,21 @@ model MenuItem {
 }
 
 model Order {
-  id            String      @id
+  id            String          @id
+  tenantId      String
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tableId       String
   table         RestaurantTable @relation(fields: [tableId], references: [id])
-  status        OrderStatus @default(recebido)
-  createdAt     DateTime    @default(now())
+  status        OrderStatus     @default(recebido)
+  createdAt     DateTime        @default(now())
   statusHistory Json
   lines         OrderLine[]
+  // Who placed it — set only when a logged-in garçom/admin lances the order
+  // through their own app; null for orders customers place themselves from
+  // the table tablet (they never log in). Denormalized (not just a FK) so a
+  // staff member who's later renamed or removed doesn't change old reports.
+  staffId       String?
+  staffName     String?
 
   @@map("orders")
 }
@@ -82,6 +162,8 @@ model OrderLine {
 
 model Bill {
   id                 String        @id
+  tenantId           String
+  tenant             Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tableId            String
   tableNumber        Int
   subtotal           Float
@@ -97,6 +179,10 @@ model Bill {
   createdAt          DateTime      @default(now())
   lines              BillLine[]
   reviews            Review[]
+  // Who closed it — same denormalized-name convention as Order.staffName
+  // above; powers the "vendas por garçom" report.
+  staffId            String?
+  staffName          String?
 
   @@map("bills")
 }
@@ -113,16 +199,22 @@ model BillLine {
 }
 
 model LoyaltyAccount {
-  phone      String @id
+  id         String @id @default(uuid())
+  tenantId   String
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phone      String
   points     Int    @default(0)
   totalSpent Float  @default(0)
   visits     Int    @default(0)
 
+  @@unique([tenantId, phone])
   @@map("loyalty_accounts")
 }
 
 model Review {
   id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   billId      String
   bill        Bill     @relation(fields: [billId], references: [id])
   tableNumber Int

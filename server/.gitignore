@@ -1,5 +1,8 @@
 node_modules
 .env
+# Logos uploaded through the Super Admin panel (server/src/uploads.ts) —
+# persisted via a Docker volume in production, not meant to live in git.
+uploads/
 # Legacy file-based store, from before the move to PostgreSQL (Fase 4).
 # menu.json is kept out of git but still read once on first boot to import
 # its content into Postgres (see src/menuStore.ts); the other files are

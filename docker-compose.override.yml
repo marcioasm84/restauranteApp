@@ -1,0 +1,24 @@
+# Carregado automaticamente pelo Docker Compose quando você roda
+# `docker compose up` sem passar `-f` — é assim que o desenvolvimento local
+# já é usado (`npm run docker:up`). Produção invoca explicitamente
+# `-f docker-compose.yml -f docker-compose.prod.yml`, o que NÃO inclui este
+# arquivo — então estas portas nunca chegam a ser publicadas fora do
+# ambiente local. Isso existe especificamente pra deixar só o Caddy exposto
+# em produção (80/443), em vez de depender só do firewall da nuvem pra
+# bloquear acesso direto ao Postgres/Redis/backend/nginx.
+services:
+  postgres:
+    ports:
+      - "5433:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    ports:
+      - "4000:4000"
+
+  frontend:
+    ports:
+      - "8090:80"
