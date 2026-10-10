@@ -1,0 +1,24 @@
+# Override da FASE 1 (piloto) — soma ao docker-compose.yml, sem Caddy e sem
+# TLS. Uso: docker compose -f docker-compose.yml -f docker-compose.pilot.yml up -d
+# (o infra/scripts/deploy.sh escolhe este arquivo quando DEPLOY_MODE=pilot).
+#
+# Sem domínio não há certificado HTTPS: o container `frontend` (nginx, que
+# já faz proxy de /api e /ws pro backend) é publicado direto na porta 80.
+# Nenhuma outra porta é publicada — este arquivo nunca carrega o
+# docker-compose.override.yml (só usado no ambiente local).
+#
+# Limites de memória pensados pra uma instância de 1GB (ver AWS_DEPLOYMENT.md).
+services:
+  postgres:
+    mem_limit: 256m
+
+  redis:
+    mem_limit: 48m
+
+  backend:
+    mem_limit: 320m
+
+  frontend:
+    mem_limit: 32m
+    ports:
+      - "80:80"
