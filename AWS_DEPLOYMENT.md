@@ -120,7 +120,7 @@ Anote o `blueprintId` (padrão do projeto: `amazon_linux_2023`) e o `bundleId` d
 cd infra
 npx cdk deploy -c phase=pilot
 ```
-`phase=pilot` é o padrão e já escolhe: pacote `micro_3_0` (1 GB), só a porta 80 aberta, **sem** bucket S3 nem usuário IAM de backup. O repositório padrão é `https://github.com/marcioasm84/restauranteApp.git`; para outro, acrescente `-c repoUrl=...`. Se os IDs confirmados em 4.2 forem diferentes dos padrões, acrescente `-c bundleId=...` e/ou `-c blueprintId=...`. Não passe `sshAllowedCidr`: a porta 22 fica fechada e você acessa a máquina pelo **console web do Lightsail** (aba "Connect", SSH no navegador, sem chaves).
+`phase=pilot` é o padrão e já escolhe: pacote `micro_3_0` (1 GB), porta 80 aberta (mais a 22 só para o SSH do navegador do console Lightsail), **sem** bucket S3 nem usuário IAM de backup. O repositório padrão é `https://github.com/marcioasm84/restauranteApp.git`; para outro, acrescente `-c repoUrl=...`. Se os IDs confirmados em 4.2 forem diferentes dos padrões, acrescente `-c bundleId=...` e/ou `-c blueprintId=...`. Você acessa a máquina pelo **console web do Lightsail** (aba "Connect", SSH no navegador, sem chaves) — o CDK libera a porta 22 apenas para esse cliente (alias `lightsail-connect`); não é preciso passar `sshAllowedCidr`.
 
 No fim, o CDK imprime duas saídas: **`InstancePublicIp`** (anote) e `NextSteps` (lembrete dos passos 4.4 a 4.6).
 
@@ -212,7 +212,7 @@ Faça quando o piloto virar algo que você queira manter, com domínio próprio 
 cd infra
 npx cdk deploy -c phase=prod [-c sshAllowedCidr=<seu-ip>/32]
 ```
-`phase=prod` escolhe: pacote `small_3_0` (2 GB), portas 80 e 443, bucket S3 de backup e usuário IAM de backup. `sshAllowedCidr` é opcional — sem ele, a porta 22 fica fechada e você usa o console web do Lightsail. Confirme `blueprintId`/`bundleId` com a CLI (seção 4.2; para 2 GB use `ramSizeInGb==2`) e, se diferirem dos padrões (`amazon_linux_2023` / `small_3_0`), passe `-c blueprintId=...` / `-c bundleId=...`. Para outro repositório, `-c repoUrl=...`.
+`phase=prod` escolhe: pacote `small_3_0` (2 GB), portas 80 e 443, bucket S3 de backup e usuário IAM de backup. `sshAllowedCidr` é opcional — sem ele, a porta 22 fica liberada só para o SSH do navegador do console Lightsail (alias `lightsail-connect`); com ele, o seu IP também entra. Confirme `blueprintId`/`bundleId` com a CLI (seção 4.2; para 2 GB use `ramSizeInGb==2`) e, se diferirem dos padrões (`amazon_linux_2023` / `small_3_0`), passe `-c blueprintId=...` / `-c bundleId=...`. Para outro repositório, `-c repoUrl=...`.
 
 Anote as saídas:
 - `InstancePublicIp` — o IP estático (use no DNS do Cloudflare, 6.2).
@@ -367,6 +367,6 @@ Sinais de que vale migrar: a instância frequentemente perto do limite de CPU/me
 
 **`docker compose` não encontrado na instância**: o `userData` do CDK instala o plugin v2 (x86_64) no primeiro boot; se você acessou cedo demais, aguarde alguns minutos e confira `docker compose version`. Se criou a instância antes dessa correção, instale o plugin manualmente em `/usr/local/lib/docker/cli-plugins/docker-compose`.
 
-**Não consigo conectar via SSH**: se não configurou `sshAllowedCidr`, a porta 22 está fechada de propósito — use o console web do Lightsail (aba "Connect").
+**Não consigo conectar via SSH / o console diz "Browser-based SSH connections aren't available"**: a regra de firewall da porta 22 com o alias `lightsail-connect` está faltando (instâncias criadas antes dessa regra existir no CDK). Rode `npx cdk deploy` de novo, ou no console: instância → **Networking** → **IPv4 Firewall** → **Add rule** → SSH, marcando "Restrict to Lightsail browser-based SSH/RDP client".
 
 **Quero ver os logs da aplicação**: `sudo docker compose logs -f backend` (ou `frontend`, `postgres`, `caddy` na Fase 2) na instância.

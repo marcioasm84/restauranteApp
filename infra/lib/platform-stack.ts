@@ -125,9 +125,18 @@ export class PlatformStack extends Stack {
           ...(isProd
             ? [{ fromPort: 443, toPort: 443, protocol: 'tcp', accessFrom: 'Anywhere (0.0.0.0/0)', cidrs: ['0.0.0.0/0'] }]
             : []),
-          ...(props.sshAllowedCidr
-            ? [{ fromPort: 22, toPort: 22, protocol: 'tcp', accessFrom: 'Custom', cidrs: [props.sshAllowedCidr] }]
-            : []),
+          // SSH (22): o alias "lightsail-connect" libera só o cliente SSH do
+          // navegador do console Lightsail (aba "Connect") — sem ele o
+          // console diz "Browser-based SSH connections aren't available".
+          // `sshAllowedCidr` (opcional) acrescenta o seu IP para SSH normal.
+          {
+            fromPort: 22,
+            toPort: 22,
+            protocol: 'tcp',
+            accessFrom: 'Custom',
+            cidrListAliases: ['lightsail-connect'],
+            ...(props.sshAllowedCidr ? { cidrs: [props.sshAllowedCidr] } : {}),
+          },
         ],
       },
       // Snapshot diário nativo do Lightsail — substitui a política de DLM
