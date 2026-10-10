@@ -365,7 +365,7 @@ Sinais de que vale migrar: a instância frequentemente perto do limite de CPU/me
 
 **Memória apertada durante o deploy**: o pico é o *build* do frontend (`vite build`), que roda com os containers antigos ainda de pé. O CDK cria um swap de 2 GB como rede de segurança. Se o build ainda falhar por falta de memória na Fase 1, ou use temporariamente o pacote de 2 GB, ou reduza a concorrência parando os containers antes do build (`sudo docker compose down` e depois `deploy.sh`).
 
-**`docker compose` não encontrado na instância**: o `userData` do CDK instala o plugin v2 (x86_64) no primeiro boot; se você acessou cedo demais, aguarde alguns minutos e confira `docker compose version`. Se criou a instância antes dessa correção, instale o plugin manualmente em `/usr/local/lib/docker/cli-plugins/docker-compose`.
+**`docker compose` não encontrado na instância**: o `userData` do CDK instala os plugins compose e buildx (x86_64) no primeiro boot; se você acessou cedo demais, aguarde alguns minutos e confira `docker compose version` e `docker buildx version`. Se criou a instância antes dessa correção, instale-os manualmente em `/usr/local/lib/docker/cli-plugins/`. O erro `compose build requires buildx 0.17.0 or later` indica buildx faltando.
 
 **Não consigo conectar via SSH / o console diz "Browser-based SSH connections aren't available"**: a regra de firewall da porta 22 com o alias `lightsail-connect` está faltando (instâncias criadas antes dessa regra existir no CDK). Rode `npx cdk deploy` de novo, ou no console: instância → **Networking** → **IPv4 Firewall** → **Add rule** → SSH, marcando "Restrict to Lightsail browser-based SSH/RDP client".
 

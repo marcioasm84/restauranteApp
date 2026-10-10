@@ -98,6 +98,13 @@ export class PlatformStack extends Stack {
       'mkdir -p /usr/local/lib/docker/cli-plugins',
       'curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose',
       'chmod +x /usr/local/lib/docker/cli-plugins/docker-compose',
+      // O Compose v2+ exige o plugin buildx (>= 0.17) para `compose build`,
+      // e o pacote docker do Amazon Linux 2023 não o inclui. O nome do
+      // arquivo leva a versão, então ela é descoberta pelo redirect de
+      // /releases/latest.
+      'BUILDX_VER=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/docker/buildx/releases/latest | sed "s#.*/##")',
+      'curl -fSL "https://github.com/docker/buildx/releases/download/${BUILDX_VER}/buildx-${BUILDX_VER}.linux-amd64" -o /usr/local/lib/docker/cli-plugins/docker-buildx',
+      'chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx',
       // Rede de segurança barata pro pico de memória do build do frontend
       // (vite/esbuild), que roda junto com os containers antigos ainda de
       // pé — ver AWS_DEPLOYMENT.md seção de dimensionamento.
