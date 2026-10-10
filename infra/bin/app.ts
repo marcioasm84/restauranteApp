@@ -19,4 +19,11 @@ const blueprintId = app.node.tryGetContext('blueprintId') as string | undefined
 const bundleId = app.node.tryGetContext('bundleId') as string | undefined
 const sshAllowedCidr = app.node.tryGetContext('sshAllowedCidr') as string | undefined
 
-new PlatformStack(app, 'MeuRestaurante-Platform', { env, repoUrl, blueprintId, bundleId, sshAllowedCidr })
+// Fase do guia AWS_DEPLOYMENT.md: "pilot" (padrão — 1 GB, HTTP, sem backup
+// S3) ou "prod" (2 GB, Caddy/HTTPS, backup S3). Escolha com `-c phase=prod`.
+const phase = (app.node.tryGetContext('phase') as string | undefined) ?? 'pilot'
+if (phase !== 'pilot' && phase !== 'prod') {
+  throw new Error(`phase inválida: "${phase}" (use pilot ou prod)`)
+}
+
+new PlatformStack(app, 'MeuRestaurante-Platform', { env, phase, repoUrl, blueprintId, bundleId, sshAllowedCidr })

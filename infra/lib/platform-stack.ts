@@ -4,7 +4,16 @@ import * as lightsail from 'aws-cdk-lib/aws-lightsail'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import type { Construct } from 'constructs'
 
+/**
+ * "pilot" = Fase 1 (AWS_DEPLOYMENT.md): só a instância, porta 80, pacote de
+ * 1 GB, sem bucket/usuário de backup. "prod" = Fase 2: portas 80+443, pacote
+ * de 2 GB, bucket S3 + usuário IAM de backup.
+ */
+export type Phase = 'pilot' | 'prod'
+
 export interface PlatformStackProps extends StackProps {
+  /** Fase do guia de implantação; define os padrões de pacote, portas e backup. */
+  phase: Phase
   /** Git URL this instance clones/pulls on boot and on every deploy. */
   repoUrl: string
   /**
@@ -16,8 +25,8 @@ export interface PlatformStackProps extends StackProps {
   /**
    * Lightsail bundle (tamanho) id — confirme o valor atual com
    * `aws lightsail get-bundles --query "bundles[?ramSizeInGb==\`2\`]"` antes
-   * de implantar; o sufixo de geração (ex. `_3_0`) muda com o tempo. O
-   * padrão abaixo mira o pacote ~2 vCPU/2GB/60GB SSD.
+   * de implantar; o sufixo de geração (ex. `_3_0`) muda com o tempo. Padrão:
+   * `micro_3_0` (1 GB) na fase pilot, `small_3_0` (2 GB) na fase prod.
    */
   bundleId?: string
   /** Your own IP (CIDR, e.g. "203.0.113.4/32"). Omit to leave SSH closed and connect via o console web do Lightsail. */
@@ -42,34 +51,40 @@ export class PlatformStack extends Stack {
     super(scope, id, props)
 
     const blueprintId = props.blueprintId ?? 'amazon_linux_2023'
-    const bundleId = props.bundleId ?? 'small_3_0'
+    const isProd = props.phase === 'prod'
+    const bundleId = props.bundleId ?? (isProd ? 'small_3_0' : 'micro_3_0')
 
-    // Backups do Postgres (pg_dump diário, ver infra/scripts/backup-postgres.sh)
-    // — expira sozinho depois de 30 dias, então o custo de armazenamento
-    // nunca cresce sem controle.
-    const backupBucket = new s3.Bucket(this, 'BackupBucket', {
-      removalPolicy: RemovalPolicy.RETAIN,
-      lifecycleRules: [{ expiration: Duration.days(30) }],
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-    })
+    // Backup S3 + usuário IAM só existem na Fase 2 (produção). No piloto o
+    // backup é apenas o snapshot diário do Lightsail (add-on abaixo), então
+    // nenhuma credencial AWS precisa existir na instância.
+    let backupUserName: string | undefined
+    if (isProd) {
+      // Backups do Postgres (pg_dump diário, ver infra/scripts/backup-postgres.sh)
+      // — expira sozinho depois de 30 dias, então o custo de armazenamento
+      // nunca cresce sem controle.
+      const backupBucket = new s3.Bucket(this, 'BackupBucket', {
+        removalPolicy: RemovalPolicy.RETAIN,
+        lifecycleRules: [{ expiration: Duration.days(30) }],
+        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      })
 
-    // Lightsail não tem IAM Instance Role — a instância não "é" nada na
-    // IAM, então o único jeito de ela falar com um serviço AWS (aqui, só
-    // o S3 do backup) é uma credencial de longa duração. Por isso este
-    // usuário tem a permissão mais estreita possível: só gravar objetos
-    // neste bucket específico, nada além disso — nem leitura, nem outros
-    // buckets, nem qualquer outro serviço. A access key em si NÃO é criada
-    // por este stack (ver AWS_DEPLOYMENT.md) — gerar a chave via CDK a
-    // deixaria registrada nos outputs/histórico do CloudFormation; em vez
-    // disso, é um passo manual de CLI (`aws iam create-access-key`), que só
-    // imprime no seu terminal.
-    const backupUser = new iam.User(this, 'BackupUser', {
-      userName: 'meu-restaurante-backup',
-    })
-    backupBucket.grantWrite(backupUser)
+      // Lightsail não tem IAM Instance Role — a instância não "é" nada na
+      // IAM, então o único jeito de ela falar com um serviço AWS (aqui, só
+      // o S3 do backup) é uma credencial de longa duração. Por isso este
+      // usuário tem a permissão mais estreita possível: só gravar objetos
+      // neste bucket específico, nada além disso. A access key em si NÃO é
+      // criada por este stack (ver AWS_DEPLOYMENT.md) — gerar a chave via
+      // CDK a deixaria registrada nos outputs/histórico do CloudFormation;
+      // em vez disso, é um passo manual de CLI (`aws iam create-access-key`).
+      const backupUser = new iam.User(this, 'BackupUser', {
+        userName: 'meu-restaurante-backup',
+      })
+      backupBucket.grantWrite(backupUser)
+      backupUserName = backupUser.userName
 
-    new CfnOutput(this, 'BackupBucketName', { value: backupBucket.bucketName })
-    new CfnOutput(this, 'BackupUserName', { value: backupUser.userName })
+      new CfnOutput(this, 'BackupBucketName', { value: backupBucket.bucketName })
+      new CfnOutput(this, 'BackupUserName', { value: backupUser.userName })
+    }
 
     // Só prepara a máquina (Docker, clone inicial) — o primeiro deploy de
     // verdade (colocar o .env com os segredos e subir os containers) é um
@@ -106,7 +121,10 @@ export class PlatformStack extends Stack {
       networking: {
         ports: [
           { fromPort: 80, toPort: 80, protocol: 'tcp', accessFrom: 'Anywhere (0.0.0.0/0)', cidrs: ['0.0.0.0/0'] },
-          { fromPort: 443, toPort: 443, protocol: 'tcp', accessFrom: 'Anywhere (0.0.0.0/0)', cidrs: ['0.0.0.0/0'] },
+          // 443 só faz sentido com o Caddy da Fase 2; o piloto é HTTP puro.
+          ...(isProd
+            ? [{ fromPort: 443, toPort: 443, protocol: 'tcp', accessFrom: 'Anywhere (0.0.0.0/0)', cidrs: ['0.0.0.0/0'] }]
+            : []),
           ...(props.sshAllowedCidr
             ? [{ fromPort: 22, toPort: 22, protocol: 'tcp', accessFrom: 'Custom', cidrs: [props.sshAllowedCidr] }]
             : []),
@@ -131,12 +149,15 @@ export class PlatformStack extends Stack {
 
     new CfnOutput(this, 'InstancePublicIp', { value: staticIp.attrIpAddress })
     new CfnOutput(this, 'NextSteps', {
-      value:
-        'Falta: 1) criar a zona no Cloudflare e apontar os registros A (apex e *) pro IP acima; ' +
-        '2) gerar o token de API do Cloudflare (permissão Zone:DNS:Edit, só nessa zona); ' +
-        '3) rodar aws iam create-access-key --user-name ' +
-        backupUser.userName +
-        ' e guardar a chave; 4) ver AWS_DEPLOYMENT.md para o resto.',
+      value: isProd
+        ? 'Falta: 1) criar a zona no Cloudflare e apontar os registros A (apex e *) pro IP acima; ' +
+          '2) gerar o token de API do Cloudflare (permissão Zone:DNS:Edit, só nessa zona); ' +
+          '3) rodar aws iam create-access-key --user-name ' +
+          backupUserName +
+          ' e guardar a chave; 4) ver AWS_DEPLOYMENT.md (Fase 2) para o resto.'
+        : 'Piloto: 1) no console do Lightsail (Connect) crie /opt/app/.env com DEPLOY_MODE=pilot e ' +
+          'PLATFORM_URL=http://<IP-com-hifens>.sslip.io; 2) rode sudo bash /opt/app/infra/scripts/deploy.sh; ' +
+          '3) acesse http://<IP-com-hifens>.sslip.io/super-admin. Ver AWS_DEPLOYMENT.md (Fase 1).',
     })
   }
 }

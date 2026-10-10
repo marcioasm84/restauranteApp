@@ -118,13 +118,11 @@ Anote o `blueprintId` (padrão do projeto: `amazon_linux_2023`) e o `bundleId` d
 
 ```bash
 cd infra
-npx cdk deploy \
-  -c repoUrl=https://github.com/<seu-usuario>/<seu-repo>.git \
-  -c bundleId=<bundleId-de-1GB>
+npx cdk deploy -c phase=pilot
 ```
-Se o `blueprintId` for diferente de `amazon_linux_2023`, acrescente `-c blueprintId=...`. Não passe `sshAllowedCidr`: a porta 22 fica fechada e você acessa a máquina pelo **console web do Lightsail** (aba "Connect", SSH no navegador, sem chaves).
+`phase=pilot` é o padrão e já escolhe: pacote `micro_3_0` (1 GB), só a porta 80 aberta, **sem** bucket S3 nem usuário IAM de backup. O repositório padrão é `https://github.com/marcioasm84/restauranteApp.git`; para outro, acrescente `-c repoUrl=...`. Se os IDs confirmados em 4.2 forem diferentes dos padrões, acrescente `-c bundleId=...` e/ou `-c blueprintId=...`. Não passe `sshAllowedCidr`: a porta 22 fica fechada e você acessa a máquina pelo **console web do Lightsail** (aba "Connect", SSH no navegador, sem chaves).
 
-No fim, o CDK imprime as saídas — anote **`InstancePublicIp`**. As saídas do bucket/usuário de backup (`BackupBucketName`, `BackupUserName`) existem, mas **não são usadas na Fase 1**.
+No fim, o CDK imprime duas saídas: **`InstancePublicIp`** (anote) e `NextSteps` (lembrete dos passos 4.4 a 4.6).
 
 ### 4.4 Criar o `.env` na instância
 
@@ -179,7 +177,7 @@ Faça quando o piloto virar algo que você queira manter, com domínio próprio 
      tar czf /backup/uploads.tgz -C /data .
    ```
    (Confirme o nome do volume com `sudo docker volume ls`; o prefixo é o nome da pasta do projeto.) Baixe os dois arquivos para a sua máquina (por exemplo `scp`, ou copie pelo console) — ou, como alternativa, tire um **snapshot manual** no console do Lightsail antes de seguir.
-3. **Suba a instância de 2 GB**: descubra o bundle (`aws lightsail get-bundles --query "bundles[?ramSizeInGb==\`2\`]"`) e rode o `cdk deploy` com `-c bundleId=<bundleId-de-2GB>` (seção 6.3). O IP estático é reanexado à nova instância, então o IP não muda.
+3. **Suba a instância de 2 GB**: descubra o bundle (`aws lightsail get-bundles --query "bundles[?ramSizeInGb==\`2\`]"`) e rode o `cdk deploy -c phase=prod` (seção 6.3; o pacote de 2 GB já é o padrão dessa fase). O IP estático é reanexado à nova instância, então o IP não muda.
 4. **Complete a Fase 2** nos passos 6.4 a 6.6 (token do Cloudflare, `.env` com `DEPLOY_MODE=prod`, `deploy.sh`).
 5. **Restaure os dados** na nova instância, depois de o `deploy.sh` ter subido os containers:
    ```bash
@@ -212,12 +210,9 @@ Faça quando o piloto virar algo que você queira manter, com domínio próprio 
 
 ```bash
 cd infra
-npx cdk deploy \
-  -c repoUrl=https://github.com/<seu-usuario>/<seu-repo>.git \
-  -c bundleId=<bundleId-de-2GB> \
-  -c sshAllowedCidr=<seu-ip>/32
+npx cdk deploy -c phase=prod [-c sshAllowedCidr=<seu-ip>/32]
 ```
-`sshAllowedCidr` é opcional — sem ele, a porta 22 fica fechada e você usa o console web do Lightsail. Confirme `blueprintId`/`bundleId` com a CLI (seção 4.2; para 2 GB use `ramSizeInGb==2`). O padrão do `infra/lib/platform-stack.ts` é `amazon_linux_2023` / `small_3_0`.
+`phase=prod` escolhe: pacote `small_3_0` (2 GB), portas 80 e 443, bucket S3 de backup e usuário IAM de backup. `sshAllowedCidr` é opcional — sem ele, a porta 22 fica fechada e você usa o console web do Lightsail. Confirme `blueprintId`/`bundleId` com a CLI (seção 4.2; para 2 GB use `ramSizeInGb==2`) e, se diferirem dos padrões (`amazon_linux_2023` / `small_3_0`), passe `-c blueprintId=...` / `-c bundleId=...`. Para outro repositório, `-c repoUrl=...`.
 
 Anote as saídas:
 - `InstancePublicIp` — o IP estático (use no DNS do Cloudflare, 6.2).
@@ -341,11 +336,11 @@ aws s3 cp s3://<bucket>/postgres/<timestamp>.sql.gz - | gunzip | \
 Mudou algo em `infra/lib/platform-stack.ts`? Rode de novo:
 ```bash
 cd infra && npx cdk diff   # revisa o que vai mudar antes
-npx cdk deploy -c repoUrl=... -c bundleId=...
+npx cdk deploy -c phase=<pilot|prod>
 ```
-Passe os mesmos `-c` do deploy anterior (principalmente `bundleId`, senão volta ao padrão de 2 GB).
+Passe os mesmos `-c` do deploy anterior (principalmente `phase` e `bundleId`/`repoUrl`, se tiver customizado — sem eles, voltam aos padrões).
 
-> Atenção: mudar `bundleId`/`blueprintId` **recria a instância** (o disco de sistema é recriado) — faça dump do banco antes (seção 5) e não em horário de pico.
+> Atenção: mudar `phase`, `bundleId` ou `blueprintId` **recria a instância** (o disco de sistema é recriado) — faça dump do banco antes (seção 5) e não em horário de pico.
 
 ## 9. Desligar tudo (evitar custo surpresa)
 
