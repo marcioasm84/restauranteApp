@@ -162,6 +162,40 @@ Builda as imagens e sobe `postgres`, `redis`, `backend` e `frontend` (este últi
 - **Logs**: `sudo docker compose logs -f backend` (ou `frontend`, `postgres`).
 - **Destruir o piloto**: `cd infra && npx cdk destroy` (seção 9).
 
+### 4.8 Levar um cliente do desenvolvimento para o piloto
+
+Para testar com um cliente que você já cadastrou no ambiente local (cardápio, mesas, usuários, logo), sem recadastrar tudo à mão. Vai só o **cadastro** daquele cliente: `tenants`, `tenant_users` (com o hash das senhas — o login no piloto é o **mesmo do dev**), `restaurant_tables`, `menu_items` e `loyalty_accounts`. Pedidos, contas e avaliações não vão.
+
+**Imagens**: as fotos de produto (`/produtos/...`) e o logo "de projeto" (`/algo.jpeg`) ficam em `public/`, versionadas no git, e já estão no build do piloto — não precisam ser enviadas. Só o logo enviado pelo painel Super Admin (`/api/uploads/logos/...`) vive no volume de uploads, e o script o empacota.
+
+1. **Na sua máquina**, com o `docker compose` local rodando, na raiz do projeto (Git Bash):
+   ```bash
+   bash infra/scripts/export-tenant.sh diferentedmais
+   ```
+   Gera `tenant-diferentedmais.tgz` e `tenant-diferentedmais.tgz.b64` (o mesmo pacote em texto, na casa de poucos KB) e mostra as contagens. Esses arquivos estão no `.gitignore` — não os commite, contêm hash de senhas.
+2. **Se esse slug já existir no piloto** (por exemplo, você o cadastrou de teste pelo Super Admin), apague-o antes — o import recusa duplicata sem alterar nada:
+   ```bash
+   sudo docker compose -f /opt/app/docker-compose.yml exec -T postgres \
+     psql -U mesaviva -d mesaviva -c "delete from tenants where slug = 'diferentedmais'"
+   ```
+3. **Na instância** (console Lightsail → Connect), o console não tem upload de arquivo: cole o pacote em texto. Abra `tenant-diferentedmais.tgz.b64` no editor, copie todo o conteúdo e:
+   ```bash
+   cat > /tmp/tenant.b64 << 'EOF'
+   <cole aqui o conteúdo do .b64>
+   EOF
+   base64 -d /tmp/tenant.b64 > /tmp/tenant-diferentedmais.tgz
+   ls -l /tmp/tenant-diferentedmais.tgz
+   ```
+   O tamanho do `.tgz` na instância deve bater com o gerado na sua máquina.
+4. **Importe** (o SQL roda numa transação única: ou entra tudo, ou nada):
+   ```bash
+   cd /opt/app && git pull
+   sudo bash infra/scripts/import-tenant.sh /tmp/tenant-diferentedmais.tgz
+   ```
+5. **Confira** em `http://diferentedmais.<ip-com-hifens>.sslip.io/` — o cardápio com 71 itens e as fotos, e o login com os usuários/senhas do dev (admin, garçom, cozinha). Depois apague os temporários: `rm /tmp/tenant.b64 /tmp/tenant-*.tgz`.
+
+Para levar outro cliente, repita com o outro slug (`barxyz`, `pizzaria-do-jel`). Se o cliente tiver logo enviado pelo painel, o script avisa que o incluiu.
+
 ---
 
 ## 5. Migrar da Fase 1 para a Fase 2
@@ -173,17 +207,17 @@ Faça quando o piloto virar algo que você queira manter, com domínio próprio 
    ```bash
    cd /opt/app
    sudo docker compose exec -T postgres pg_dump -U mesaviva mesaviva | gzip > /tmp/piloto.sql.gz
-   sudo docker run --rm -v restauranteapp_backend_uploads:/data -v /tmp:/backup alpine \
+   sudo docker run --rm -v app_backend_uploads:/data -v /tmp:/backup alpine \
      tar czf /backup/uploads.tgz -C /data .
    ```
-   (Confirme o nome do volume com `sudo docker volume ls`; o prefixo é o nome da pasta do projeto.) Baixe os dois arquivos para a sua máquina (por exemplo `scp`, ou copie pelo console) — ou, como alternativa, tire um **snapshot manual** no console do Lightsail antes de seguir.
+   (Confirme o nome do volume com `sudo docker volume ls`; o prefixo é o nome da pasta do projeto, `app`, por estar em `/opt/app`.) Baixe os dois arquivos para a sua máquina (por exemplo `scp`, ou copie pelo console) — ou, como alternativa, tire um **snapshot manual** no console do Lightsail antes de seguir.
 3. **Suba a instância de 2 GB**: descubra o bundle (`aws lightsail get-bundles --query "bundles[?ramSizeInGb==\`2\`]"`) e rode o `cdk deploy -c phase=prod` (seção 6.3; o pacote de 2 GB já é o padrão dessa fase). O IP estático é reanexado à nova instância, então o IP não muda.
 4. **Complete a Fase 2** nos passos 6.4 a 6.6 (token do Cloudflare, `.env` com `DEPLOY_MODE=prod`, `deploy.sh`).
 5. **Restaure os dados** na nova instância, depois de o `deploy.sh` ter subido os containers:
    ```bash
    cd /opt/app
    gunzip -c piloto.sql.gz | sudo docker compose exec -T postgres psql -U mesaviva mesaviva
-   sudo docker run --rm -v restauranteapp_backend_uploads:/data -v "$PWD":/backup alpine \
+   sudo docker run --rm -v app_backend_uploads:/data -v "$PWD":/backup alpine \
      tar xzf /backup/uploads.tgz -C /data
    ```
    Clientes, slugs, cardápios, pedidos e logos permanecem — só muda o endereço (de `<slug>.<ip>.sslip.io` para `<slug>.seu-dominio.com.br`).
