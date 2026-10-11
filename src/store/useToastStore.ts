@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { newId } from '../lib/id'
 
 interface Toast {
   id: string
@@ -14,7 +15,7 @@ interface ToastStoreState {
 export const useToastStore = create<ToastStoreState>((set) => ({
   toasts: [],
   push: (message) => {
-    const id = crypto.randomUUID()
+    const id = newId()
     set((s) => ({ toasts: [...s.toasts, { id, message }] }))
     setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 5000)
   },

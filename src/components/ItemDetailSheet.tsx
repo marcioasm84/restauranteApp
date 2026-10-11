@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Minus, Plus, X } from 'lucide-react'
 import { formatBRL } from '../lib/format'
+import { newId } from '../lib/id'
 import type { CartLine, MenuItem } from '../types'
 import DishImage from './DishImage'
 import ItemBadge from './ItemBadge'
@@ -25,7 +26,7 @@ export default function ItemDetailSheet({
 
   const handleAdd = () => {
     onAdd({
-      lineId: crypto.randomUUID(),
+      lineId: newId(),
       menuItemId: item.id,
       quantity,
       pontoCarne,
